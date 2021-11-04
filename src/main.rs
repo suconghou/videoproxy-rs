@@ -1,0 +1,65 @@
+#[macro_use]
+extern crate lazy_static;
+
+extern crate tokio;
+
+mod handler;
+mod parser;
+mod request;
+mod route;
+mod cache {
+    pub mod map;
+}
+
+use actix_files as fs;
+use actix_web::{web, App, HttpServer};
+use std::env;
+
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
+    let (addr, mount_path, serve_from) = opt();
+    HttpServer::new(move || {
+        App::new()
+            .service(route::hello)
+            .service(route::echo)
+            .service(route::vinfo)
+            .service(route::image)
+            .service(route::stream)
+            .service(route::streamts)
+            .service(route::streamauto)
+            .service(
+                fs::Files::new(&mount_path, serve_from.clone())
+                    .show_files_listing()
+                    .disable_content_disposition()
+                    .prefer_utf8(true)
+                    .use_last_modified(true)
+                    .use_etag(true),
+            )
+            .route("/{filename:.*\\.\\w{1,4}}", web::get().to(route::serve))
+    })
+    .bind(addr)?
+    .run()
+    .await
+}
+
+fn opt() -> (String, String, String) {
+    let mut opts: Vec<String> = vec![
+        "127.0.0.1:8080".to_string(),
+        "/public".to_string(),
+        "public".to_string(),
+    ];
+    let mut index = 0;
+    let mut first = true;
+    for argument in env::args() {
+        if first {
+            first = false;
+            continue;
+        }
+        if index >= 3 {
+            break;
+        }
+        opts[index] = argument;
+        index = index + 1;
+    }
+    (opts[0].clone(), opts[1].clone(), opts[2].clone())
+}
