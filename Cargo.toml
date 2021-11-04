@@ -1,8 +1,8 @@
 [package]
 name = "videoproxy-rs"
 version = "0.1.0"
-authors = ["suconghou <1126045770@qq.com>"]
-edition = "2021"
+authors = ["suconghou <suconghou@gmail.com>"]
+edition = "2018"
 
 
 [dependencies]
