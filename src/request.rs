@@ -1,6 +1,7 @@
 use crate::cache::map::CACHE;
 use actix_web::client::Client;
 use actix_web::http::StatusCode;
+use core::time::Duration;
 use serde_json::value::Value;
 use std::collections::HashMap;
 use std::error::Error;
@@ -24,7 +25,13 @@ pub async fn getplayer(vid: &String) -> Result<HashMap<String, Value>, Box<dyn E
 
 pub async fn getnetplayer(vid: &String) -> Result<HashMap<String, Value>, Box<dyn Error>> {
     let video_url = "https://youtubei.googleapis.com/youtubei/v1/player?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8";
-    let client = Client::default();
+    let client = Client::builder()
+        .timeout(Duration::from_secs(10))
+        .no_default_headers()
+        .max_redirects(3)
+        .initial_window_size(524288)
+        .initial_connection_window_size(524288)
+        .finish();
     let req = serde_json::json!({
         "videoId": vid,
         "context": {
@@ -37,7 +44,7 @@ pub async fn getnetplayer(vid: &String) -> Result<HashMap<String, Value>, Box<dy
 
     let mut response = client
         .post(video_url)
-        .timeout(core::time::Duration::from_secs(10))
+        .timeout(Duration::from_secs(10))
         .set_header("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.81 Safari/537.36")
         .set_header("Content-Type", "application/json")
         .set_header("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")

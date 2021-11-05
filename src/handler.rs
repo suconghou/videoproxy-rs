@@ -2,6 +2,7 @@ use crate::parser;
 use actix_web::client::Client;
 use actix_web::http::StatusCode;
 use actix_web::{Error, HttpRequest, HttpResponse, Responder};
+use core::time::Duration;
 use std::error;
 use std::io;
 
@@ -173,11 +174,17 @@ async fn proxy(
             .body(format!("{:?}", err))
             .await;
     }
-    let client = Client::default();
+    let client = Client::builder()
+        .timeout(Duration::from_secs(timeout))
+        .no_default_headers()
+        .max_redirects(3)
+        .initial_window_size(524288)
+        .initial_connection_window_size(524288)
+        .finish();
     let mut forwarded_req = client
         .get(url)
         .no_decompress()
-        .timeout(core::time::Duration::from_secs(timeout));
+        .timeout(Duration::from_secs(timeout));
 
     let r = req.headers();
     for item in &FWD_HEADERS {
@@ -214,11 +221,17 @@ async fn simple_proxy(
             .body(format!("{:?}", err))
             .await;
     }
-    let client = Client::default();
+    let client = Client::builder()
+        .timeout(Duration::from_secs(timeout))
+        .no_default_headers()
+        .max_redirects(3)
+        .initial_window_size(524288)
+        .initial_connection_window_size(524288)
+        .finish();
     let mut forwarded_req = client
         .get(url)
         .no_decompress()
-        .timeout(core::time::Duration::from_secs(timeout));
+        .timeout(Duration::from_secs(timeout));
 
     let r = req.headers();
     for item in &FWD_HEADERS_SIMPLE {
