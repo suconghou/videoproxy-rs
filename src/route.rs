@@ -19,7 +19,12 @@ async fn vinfo(info: web::Path<(String, String)>) -> impl Responder {
     let info = info.into_inner();
     let res = handler::get_info(&info.0).await;
     res.map_err(|err| HttpResponse::InternalServerError().body(format!("{:?}", err)))
-        .map(|res| HttpResponse::Ok().json(res.clean()))
+        .map(|res| {
+            HttpResponse::Ok()
+                .set_header(handler::CORS_KEY, handler::CORS_VALUE)
+                .set_header(handler::CACHE_KEY, handler::CACHE_VALUE)
+                .json(res.clean())
+        })
 }
 
 #[get("/video/{vid:[\\w\\-]{6,15}}.{ext:(jpg|webp)}")]
