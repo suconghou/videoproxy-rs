@@ -1,5 +1,5 @@
 use crate::parser;
-use actix_web::client::Client;
+use actix_web::client::{Client, ClientRequest};
 use actix_web::http::StatusCode;
 use actix_web::{Error, HttpRequest, HttpResponse, Responder};
 use core::time::Duration;
@@ -174,17 +174,7 @@ async fn proxy(
             .body(format!("{:?}", err))
             .await;
     }
-    let client = Client::builder()
-        .timeout(Duration::from_secs(timeout))
-        .no_default_headers()
-        .max_redirects(3)
-        .initial_window_size(524288)
-        .initial_connection_window_size(524288)
-        .finish();
-    let mut forwarded_req = client
-        .get(url)
-        .no_decompress()
-        .timeout(Duration::from_secs(timeout));
+    let mut forwarded_req = request(url, timeout);
 
     let r = req.headers();
     for item in &FWD_HEADERS {
@@ -221,17 +211,7 @@ async fn simple_proxy(
             .body(format!("{:?}", err))
             .await;
     }
-    let client = Client::builder()
-        .timeout(Duration::from_secs(timeout))
-        .no_default_headers()
-        .max_redirects(3)
-        .initial_window_size(524288)
-        .initial_connection_window_size(524288)
-        .finish();
-    let mut forwarded_req = client
-        .get(url)
-        .no_decompress()
-        .timeout(Duration::from_secs(timeout));
+    let mut forwarded_req = request(url, timeout);
 
     let r = req.headers();
     for item in &FWD_HEADERS_SIMPLE {
@@ -255,6 +235,20 @@ async fn simple_proxy(
         }
         client_resp.streaming(res)
     })
+}
+
+fn request(url: String, timeout: u64) -> ClientRequest {
+    let client = Client::builder()
+        .timeout(Duration::from_secs(timeout))
+        .no_default_headers()
+        .max_redirects(3)
+        .initial_window_size(524288)
+        .initial_connection_window_size(524288)
+        .finish();
+    client
+        .get(url)
+        .no_decompress()
+        .timeout(Duration::from_secs(timeout))
 }
 
 fn find_item(info: parser::VideoInfo, prefer: &String) -> Option<String> {
