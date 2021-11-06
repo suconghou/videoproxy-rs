@@ -12,7 +12,7 @@ https://github.com/suconghou/videoproxy
 
 GET `/video/{ID}.json` 
 
-> 默认便于缓存不输出下载地址,query参数`info=all`输出下载地址 
+> 输出资源信息
 
 GET `/video/{ID}/{ITAG}.mp4` `/video/{ID}/{ITAG}.webm`
 

@@ -52,9 +52,6 @@ const FWD_HEADERS_SIMPLE: [&str; 8] = [
 pub const CACHE_KEY: &str = "cache-control";
 pub const CACHE_VALUE: &str = "public,max-age=864000";
 
-pub const CORS_KEY: &str = "access-control-allow-origin";
-pub const CORS_VALUE: &str = "*";
-
 const PREFER_LIST: &str =
     "18,59,22,37,243,134,396,244,135,397,247,136,302,398,248,137,242,133,395,278,598,160,597";
 
@@ -192,7 +189,6 @@ async fn proxy(
         {
             client_resp.set_header(header_name.clone(), header_value.clone());
         }
-        client_resp.set_header(CORS_KEY, CORS_VALUE);
         if status == StatusCode::OK {
             client_resp.set_header(CACHE_KEY, CACHE_VALUE);
         }
@@ -229,7 +225,6 @@ async fn simple_proxy(
         {
             client_resp.set_header(header_name.clone(), header_value.clone());
         }
-        client_resp.set_header(CORS_KEY, CORS_VALUE);
         if status == StatusCode::OK {
             client_resp.set_header(CACHE_KEY, CACHE_VALUE);
         }

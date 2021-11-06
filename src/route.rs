@@ -21,7 +21,6 @@ async fn vinfo(info: web::Path<(String, String)>) -> impl Responder {
     res.map_err(|err| HttpResponse::InternalServerError().body(format!("{:?}", err)))
         .map(|res| {
             HttpResponse::Ok()
-                .set_header(handler::CORS_KEY, handler::CORS_VALUE)
                 .set_header(handler::CACHE_KEY, handler::CACHE_VALUE)
                 .json(res.clean())
         })
