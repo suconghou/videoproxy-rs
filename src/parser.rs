@@ -1,5 +1,7 @@
 use crate::request;
 use serde::Serialize;
+use actix_web::client::Client;
+use actix_web::web;
 use std::collections::HashMap;
 use std::error::Error;
 use std::io;
@@ -38,8 +40,8 @@ impl VideoInfo {
     }
 }
 
-pub async fn parse(vid: &String) -> Result<VideoInfo, Box<dyn Error>> {
-    let res = request::getplayer(&vid).await?;
+pub async fn parse(client: &web::Data<Client>,vid: &String) -> Result<VideoInfo, Box<dyn Error>> {
+    let res = request::getplayer(client,&vid).await?;
     let status = res["playabilityStatus"]["status"].as_str().unwrap_or("");
     if status != "OK" {
         let reason = res["playabilityStatus"]["reason"]

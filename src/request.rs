@@ -1,6 +1,7 @@
 use crate::cache::map::CACHE;
 use actix_web::client::Client;
 use actix_web::http::StatusCode;
+use actix_web::web;
 use core::time::Duration;
 use serde_json::value::Value;
 use std::collections::HashMap;
@@ -9,9 +10,12 @@ use std::io;
 
 const LIMIT: usize = 1024 * 1024 * 5;
 
-pub async fn getplayer(vid: &String) -> Result<HashMap<String, Value>, Box<dyn Error>> {
+pub async fn getplayer(
+    client: &web::Data<Client>,
+    vid: &String,
+) -> Result<HashMap<String, Value>, Box<dyn Error>> {
     let real = || async {
-        if let Ok(res) = getnetplayer(vid).await {
+        if let Ok(res) = getnetplayer(client, vid).await {
             return Some(res);
         }
         return None;
@@ -20,18 +24,14 @@ pub async fn getplayer(vid: &String) -> Result<HashMap<String, Value>, Box<dyn E
     if let Some(res) = item {
         return Ok(res);
     }
-    getnetplayer(vid).await
+    getnetplayer(client, vid).await
 }
 
-pub async fn getnetplayer(vid: &String) -> Result<HashMap<String, Value>, Box<dyn Error>> {
+pub async fn getnetplayer(
+    client: &web::Data<Client>,
+    vid: &String,
+) -> Result<HashMap<String, Value>, Box<dyn Error>> {
     let video_url = "https://youtubei.googleapis.com/youtubei/v1/player?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8";
-    let client = Client::builder()
-        .timeout(Duration::from_secs(10))
-        .no_default_headers()
-        .max_redirects(3)
-        .initial_window_size(524288)
-        .initial_connection_window_size(524288)
-        .finish();
     let req = serde_json::json!({
         "videoId": vid,
         "context": {

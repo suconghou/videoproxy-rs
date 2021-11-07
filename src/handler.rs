@@ -1,7 +1,7 @@
 use crate::parser;
 use actix_web::client::{Client, ClientRequest};
 use actix_web::http::StatusCode;
-use actix_web::{Error, HttpRequest, HttpResponse, Responder};
+use actix_web::{web, Error, HttpRequest, HttpResponse, Responder};
 use core::time::Duration;
 use std::error;
 use std::io;
@@ -55,16 +55,25 @@ pub const CACHE_VALUE: &str = "public,max-age=864000";
 const PREFER_LIST: &str =
     "18,59,22,37,243,134,396,244,135,397,247,136,302,398,248,137,242,133,395,278,598,160,597";
 
-pub async fn get_info(vid: &String) -> Result<parser::VideoInfo, Box<dyn error::Error>> {
-    parser::parse(vid).await
+pub async fn get_info(
+    client: &web::Data<Client>,
+    vid: &String,
+) -> Result<parser::VideoInfo, Box<dyn error::Error>> {
+    parser::parse(client, vid).await
 }
 
-pub async fn proxy_image(req: HttpRequest, vid: &String, ext: &String) -> impl Responder {
+pub async fn proxy_image(
+    client: web::Data<Client>,
+    req: HttpRequest,
+    vid: &String,
+    ext: &String,
+) -> impl Responder {
     let url = match ext.as_str() {
         "jpg" => format!("https://i.ytimg.com/vi/{}/mqdefault.{}", vid, ext),
         _ => format!("https://i.ytimg.com/vi_webp/{}/mqdefault.{}", vid, ext),
     };
     proxy(
+        client,
         req,
         url,
         10,
@@ -74,12 +83,13 @@ pub async fn proxy_image(req: HttpRequest, vid: &String, ext: &String) -> impl R
 }
 
 pub async fn proxy_ts(
+    client: web::Data<Client>,
     req: HttpRequest,
     vid: &String,
     itag: &String,
     part: &String,
 ) -> impl Responder {
-    match get_info(vid).await {
+    match get_info(&client, vid).await {
         Ok(res) => match res.streams.get(itag) {
             Some(item) => {
                 let mut url = String::new();
@@ -87,6 +97,7 @@ pub async fn proxy_ts(
                 url.push_str("&range=");
                 url.push_str(part);
                 simple_proxy(
+                    client,
                     req,
                     url,
                     30,
@@ -96,6 +107,7 @@ pub async fn proxy_ts(
             }
             None => {
                 simple_proxy(
+                    client,
                     req,
                     "".to_owned(),
                     10,
@@ -104,15 +116,21 @@ pub async fn proxy_ts(
                 .await
             }
         },
-        Err(err) => simple_proxy(req, "".to_owned(), 10, err).await,
+        Err(err) => simple_proxy(client, req, "".to_owned(), 10, err).await,
     }
 }
 
-pub async fn proxy_file(req: HttpRequest, vid: &String, itag: &String) -> impl Responder {
-    match get_info(vid).await {
+pub async fn proxy_file(
+    client: web::Data<Client>,
+    req: HttpRequest,
+    vid: &String,
+    itag: &String,
+) -> impl Responder {
+    match get_info(&client, vid).await {
         Ok(res) => match res.streams.get(itag) {
             Some(item) => {
                 proxy(
+                    client,
                     req,
                     item.url.clone(),
                     3600,
@@ -122,6 +140,7 @@ pub async fn proxy_file(req: HttpRequest, vid: &String, itag: &String) -> impl R
             }
             None => {
                 proxy(
+                    client,
                     req,
                     "".to_owned(),
                     10,
@@ -130,15 +149,21 @@ pub async fn proxy_file(req: HttpRequest, vid: &String, itag: &String) -> impl R
                 .await
             }
         },
-        Err(err) => proxy(req, "".to_owned(), 10, err).await,
+        Err(err) => proxy(client, req, "".to_owned(), 10, err).await,
     }
 }
 
-pub async fn proxy_auto(req: HttpRequest, vid: &String, prefer: &String) -> impl Responder {
-    match get_info(vid).await {
+pub async fn proxy_auto(
+    client: web::Data<Client>,
+    req: HttpRequest,
+    vid: &String,
+    prefer: &String,
+) -> impl Responder {
+    match get_info(&client, vid).await {
         Ok(res) => match find_item(res, &prefer) {
             Some(item) => {
                 proxy(
+                    client,
                     req,
                     item,
                     3600,
@@ -148,6 +173,7 @@ pub async fn proxy_auto(req: HttpRequest, vid: &String, prefer: &String) -> impl
             }
             None => {
                 proxy(
+                    client,
                     req,
                     "".to_owned(),
                     10,
@@ -156,11 +182,12 @@ pub async fn proxy_auto(req: HttpRequest, vid: &String, prefer: &String) -> impl
                 .await
             }
         },
-        Err(err) => proxy(req, "".to_owned(), 10, err).await,
+        Err(err) => proxy(client, req, "".to_owned(), 10, err).await,
     }
 }
 
 async fn proxy(
+    client: web::Data<Client>,
     req: HttpRequest,
     url: String,
     timeout: u64,
@@ -171,7 +198,7 @@ async fn proxy(
             .body(format!("{:?}", err))
             .await;
     }
-    let mut forwarded_req = request(url, timeout);
+    let mut forwarded_req = request(client, url, timeout);
 
     let r = req.headers();
     for item in &FWD_HEADERS {
@@ -179,24 +206,24 @@ async fn proxy(
             forwarded_req = forwarded_req.set_header(*item, r.get(*item).unwrap().clone());
         }
     }
-    forwarded_req.send().await.map_err(Error::from).map(|res| {
-        let status = res.status();
-        let mut client_resp = HttpResponse::build(status);
-        for (header_name, header_value) in res
-            .headers()
-            .iter()
-            .filter(|(h, _)| EXPOSE_HEADERS.contains(&h.as_str()))
-        {
-            client_resp.set_header(header_name.clone(), header_value.clone());
-        }
-        if status == StatusCode::OK {
-            client_resp.set_header(CACHE_KEY, CACHE_VALUE);
-        }
-        client_resp.streaming(res)
-    })
+    let mut res = forwarded_req.send().await.map_err(Error::from)?;
+    let status = res.status();
+    let mut client_resp = HttpResponse::build(status);
+    for (header_name, header_value) in res
+        .headers()
+        .iter()
+        .filter(|(h, _)| EXPOSE_HEADERS.contains(&h.as_str()))
+    {
+        client_resp.set_header(header_name.clone(), header_value.clone());
+    }
+    if status == StatusCode::OK {
+        client_resp.set_header(CACHE_KEY, CACHE_VALUE);
+    }
+    Ok(client_resp.body(res.body().await?))
 }
 
 async fn simple_proxy(
+    client: web::Data<Client>,
     req: HttpRequest,
     url: String,
     timeout: u64,
@@ -207,7 +234,7 @@ async fn simple_proxy(
             .body(format!("{:?}", err))
             .await;
     }
-    let mut forwarded_req = request(url, timeout);
+    let mut forwarded_req = request(client, url, timeout);
 
     let r = req.headers();
     for item in &FWD_HEADERS_SIMPLE {
@@ -215,31 +242,23 @@ async fn simple_proxy(
             forwarded_req = forwarded_req.set_header(*item, r.get(*item).unwrap().clone());
         }
     }
-    forwarded_req.send().await.map_err(Error::from).map(|res| {
-        let status = res.status();
-        let mut client_resp = HttpResponse::build(status);
-        for (header_name, header_value) in res
-            .headers()
-            .iter()
-            .filter(|(h, _)| EXPOSE_HEADERS_SIMPLE.contains(&h.as_str()))
-        {
-            client_resp.set_header(header_name.clone(), header_value.clone());
-        }
-        if status == StatusCode::OK {
-            client_resp.set_header(CACHE_KEY, CACHE_VALUE);
-        }
-        client_resp.streaming(res)
-    })
+    let mut res = forwarded_req.send().await.map_err(Error::from)?;
+    let status = res.status();
+    let mut client_resp = HttpResponse::build(status);
+    for (header_name, header_value) in res
+        .headers()
+        .iter()
+        .filter(|(h, _)| EXPOSE_HEADERS_SIMPLE.contains(&h.as_str()))
+    {
+        client_resp.set_header(header_name.clone(), header_value.clone());
+    }
+    if status == StatusCode::OK {
+        client_resp.set_header(CACHE_KEY, CACHE_VALUE);
+    }
+    Ok(client_resp.body(res.body().await?))
 }
 
-fn request(url: String, timeout: u64) -> ClientRequest {
-    let client = Client::builder()
-        .timeout(Duration::from_secs(timeout))
-        .no_default_headers()
-        .max_redirects(3)
-        .initial_window_size(524288)
-        .initial_connection_window_size(524288)
-        .finish();
+fn request(client: web::Data<Client>, url: String, timeout: u64) -> ClientRequest {
     client
         .get(url)
         .no_decompress()

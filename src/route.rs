@@ -1,5 +1,6 @@
 use crate::handler;
 use actix_files as fs;
+use actix_web::client::Client;
 use actix_web::{get, post, web, Error, HttpRequest, HttpResponse, Responder, Result};
 use serde::Deserialize;
 use std::path::PathBuf;
@@ -15,9 +16,9 @@ async fn hello() -> impl Responder {
 }
 
 #[get("/video/{vid:[\\w\\-]{6,15}}.{ext:(json)}")]
-async fn vinfo(info: web::Path<(String, String)>) -> impl Responder {
+async fn vinfo(info: web::Path<(String, String)>, client: web::Data<Client>) -> impl Responder {
     let info = info.into_inner();
-    let res = handler::get_info(&info.0).await;
+    let res = handler::get_info(&client, &info.0).await;
     res.map_err(|err| HttpResponse::InternalServerError().body(format!("{:?}", err)))
         .map(|res| {
             HttpResponse::Ok()
@@ -27,21 +28,33 @@ async fn vinfo(info: web::Path<(String, String)>) -> impl Responder {
 }
 
 #[get("/video/{vid:[\\w\\-]{6,15}}.{ext:(jpg|webp)}")]
-async fn image(req: HttpRequest, info: web::Path<(String, String)>) -> impl Responder {
+async fn image(
+    req: HttpRequest,
+    info: web::Path<(String, String)>,
+    client: web::Data<Client>,
+) -> impl Responder {
     let info = info.into_inner();
-    handler::proxy_image(req, &info.0, &info.1).await
+    handler::proxy_image(client, req, &info.0, &info.1).await
 }
 
 #[get("/video/{vid:[\\w\\-]{6,15}}/{itag:\\d+}.{ext:(webm|mp4)}")]
-async fn stream(req: HttpRequest, info: web::Path<(String, String, String)>) -> impl Responder {
+async fn stream(
+    req: HttpRequest,
+    info: web::Path<(String, String, String)>,
+    client: web::Data<Client>,
+) -> impl Responder {
     let info = info.into_inner();
-    handler::proxy_file(req, &info.0, &info.1).await
+    handler::proxy_file(client, req, &info.0, &info.1).await
 }
 
 #[get("/video/{vid:[\\w\\-]{6,15}}/{itag:\\d+}/{range:\\d+-\\d+}.ts")]
-async fn streamts(req: HttpRequest, info: web::Path<(String, String, String)>) -> impl Responder {
+async fn streamts(
+    req: HttpRequest,
+    info: web::Path<(String, String, String)>,
+    client: web::Data<Client>,
+) -> impl Responder {
     let info = info.into_inner();
-    handler::proxy_ts(req, &info.0, &info.1, &info.2).await
+    handler::proxy_ts(client, req, &info.0, &info.1, &info.2).await
 }
 
 #[get("/video/{vid:[\\w\\-]{6,15}}.{ext:(webm|mp4)}")]
@@ -49,9 +62,11 @@ async fn streamauto(
     req: HttpRequest,
     params: web::Query<Quality>,
     info: web::Path<(String, String)>,
+    client: web::Data<Client>,
 ) -> impl Responder {
     let info = info.into_inner();
     handler::proxy_auto(
+        client,
         req,
         &info.0,
         params.prefer.as_ref().unwrap_or(&"".to_owned()),

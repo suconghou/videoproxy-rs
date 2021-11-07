@@ -12,6 +12,7 @@ mod cache {
 }
 
 use actix_files as fs;
+use actix_web::client::Client;
 use actix_web::{middleware, web, App, HttpServer};
 use std::env;
 
@@ -20,6 +21,7 @@ async fn main() -> std::io::Result<()> {
     let (addr, mount_path, serve_from) = opt();
     HttpServer::new(move || {
         App::new()
+            .data(Client::new())
             .wrap(middleware::DefaultHeaders::new().header("access-control-allow-origin", "*"))
             .service(route::hello)
             .service(route::echo)
