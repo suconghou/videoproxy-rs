@@ -206,7 +206,7 @@ async fn proxy(
             forwarded_req = forwarded_req.set_header(*item, r.get(*item).unwrap().clone());
         }
     }
-    let mut res = forwarded_req.send().await.map_err(Error::from)?;
+    let res = forwarded_req.send().await.map_err(Error::from)?;
     let status = res.status();
     let mut client_resp = HttpResponse::build(status);
     for (header_name, header_value) in res
@@ -219,7 +219,7 @@ async fn proxy(
     if status == StatusCode::OK {
         client_resp.set_header(CACHE_KEY, CACHE_VALUE);
     }
-    Ok(client_resp.body(res.body().await?))
+    Ok(client_resp.streaming(res))
 }
 
 async fn simple_proxy(
@@ -242,7 +242,7 @@ async fn simple_proxy(
             forwarded_req = forwarded_req.set_header(*item, r.get(*item).unwrap().clone());
         }
     }
-    let mut res = forwarded_req.send().await.map_err(Error::from)?;
+    let res = forwarded_req.send().await.map_err(Error::from)?;
     let status = res.status();
     let mut client_resp = HttpResponse::build(status);
     for (header_name, header_value) in res
@@ -255,7 +255,7 @@ async fn simple_proxy(
     if status == StatusCode::OK {
         client_resp.set_header(CACHE_KEY, CACHE_VALUE);
     }
-    Ok(client_resp.body(res.body().await?))
+    Ok(client_resp.streaming(res))
 }
 
 fn request(client: web::Data<Client>, url: String, timeout: u64) -> ClientRequest {
