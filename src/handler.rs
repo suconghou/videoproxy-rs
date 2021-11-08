@@ -1,10 +1,10 @@
 use crate::parser;
 use actix_web::client::{Client, ClientRequest};
 use actix_web::http::StatusCode;
-use actix_web::{web, Error, HttpRequest, HttpResponse, Responder};
+use actix_web::{web, Error as webError, HttpRequest, HttpResponse, Responder};
 use core::time::Duration;
 use std::error;
-use std::io;
+use std::io::{Error, ErrorKind};
 
 // 暴露的headers, 此处需要是小写
 const EXPOSE_HEADERS: [&str; 7] = [
@@ -72,14 +72,7 @@ pub async fn proxy_image(
         "jpg" => format!("https://i.ytimg.com/vi/{}/mqdefault.{}", vid, ext),
         _ => format!("https://i.ytimg.com/vi_webp/{}/mqdefault.{}", vid, ext),
     };
-    proxy(
-        client,
-        req,
-        url,
-        10,
-        Box::new(io::Error::new(io::ErrorKind::Other, "")),
-    )
-    .await
+    proxy(client, req, url, 10, None).await
 }
 
 pub async fn proxy_ts(
@@ -96,14 +89,7 @@ pub async fn proxy_ts(
                 url.push_str(&item.url);
                 url.push_str("&range=");
                 url.push_str(part);
-                simple_proxy(
-                    client,
-                    req,
-                    url,
-                    30,
-                    Box::new(io::Error::new(io::ErrorKind::Other, "")),
-                )
-                .await
+                simple_proxy(client, req, url, 30, None).await
             }
             None => {
                 simple_proxy(
@@ -111,12 +97,12 @@ pub async fn proxy_ts(
                     req,
                     "".to_owned(),
                     10,
-                    Box::new(io::Error::new(io::ErrorKind::NotFound, "itag not found")),
+                    Some(Box::new(Error::new(ErrorKind::NotFound, "itag not found"))),
                 )
                 .await
             }
         },
-        Err(err) => simple_proxy(client, req, "".to_owned(), 10, err).await,
+        Err(err) => simple_proxy(client, req, "".to_owned(), 10, Some(err)).await,
     }
 }
 
@@ -128,28 +114,19 @@ pub async fn proxy_file(
 ) -> impl Responder {
     match get_info(&client, vid).await {
         Ok(res) => match res.streams.get(itag) {
-            Some(item) => {
-                proxy(
-                    client,
-                    req,
-                    item.url.clone(),
-                    3600,
-                    Box::new(io::Error::new(io::ErrorKind::Other, "")),
-                )
-                .await
-            }
+            Some(item) => proxy(client, req, item.url.clone(), 3600, None).await,
             None => {
                 proxy(
                     client,
                     req,
                     "".to_owned(),
                     10,
-                    Box::new(io::Error::new(io::ErrorKind::NotFound, "itag not found")),
+                    Some(Box::new(Error::new(ErrorKind::NotFound, "itag not found"))),
                 )
                 .await
             }
         },
-        Err(err) => proxy(client, req, "".to_owned(), 10, err).await,
+        Err(err) => proxy(client, req, "".to_owned(), 10, Some(err)).await,
     }
 }
 
@@ -161,28 +138,19 @@ pub async fn proxy_auto(
 ) -> impl Responder {
     match get_info(&client, vid).await {
         Ok(res) => match find_item(res, &prefer) {
-            Some(item) => {
-                proxy(
-                    client,
-                    req,
-                    item,
-                    3600,
-                    Box::new(io::Error::new(io::ErrorKind::Other, "")),
-                )
-                .await
-            }
+            Some(item) => proxy(client, req, item, 3600, None).await,
             None => {
                 proxy(
                     client,
                     req,
                     "".to_owned(),
                     10,
-                    Box::new(io::Error::new(io::ErrorKind::NotFound, "itag not found")),
+                    Some(Box::new(Error::new(ErrorKind::NotFound, "itag not found"))),
                 )
                 .await
             }
         },
-        Err(err) => proxy(client, req, "".to_owned(), 10, err).await,
+        Err(err) => proxy(client, req, "".to_owned(), 10, Some(err)).await,
     }
 }
 
@@ -191,11 +159,11 @@ async fn proxy(
     req: HttpRequest,
     url: String,
     timeout: u64,
-    err: Box<dyn error::Error>,
+    err: Option<Box<dyn error::Error>>,
 ) -> impl Responder {
-    if url == "" {
+    if err.is_some() {
         return HttpResponse::InternalServerError()
-            .body(format!("{:?}", err))
+            .body(format!("{:?}", err.unwrap()))
             .await;
     }
     let mut forwarded_req = request(client, url, timeout);
@@ -206,7 +174,7 @@ async fn proxy(
             forwarded_req = forwarded_req.set_header(*item, r.get(*item).unwrap().clone());
         }
     }
-    let res = forwarded_req.send().await.map_err(Error::from)?;
+    let res = forwarded_req.send().await.map_err(webError::from)?;
     let status = res.status();
     let mut client_resp = HttpResponse::build(status);
     for (header_name, header_value) in res
@@ -227,11 +195,11 @@ async fn simple_proxy(
     req: HttpRequest,
     url: String,
     timeout: u64,
-    err: Box<dyn error::Error>,
+    err: Option<Box<dyn error::Error>>,
 ) -> impl Responder {
-    if url == "" {
+    if err.is_some() {
         return HttpResponse::InternalServerError()
-            .body(format!("{:?}", err))
+            .body(format!("{:?}", err.unwrap()))
             .await;
     }
     let mut forwarded_req = request(client, url, timeout);
@@ -242,7 +210,7 @@ async fn simple_proxy(
             forwarded_req = forwarded_req.set_header(*item, r.get(*item).unwrap().clone());
         }
     }
-    let res = forwarded_req.send().await.map_err(Error::from)?;
+    let res = forwarded_req.send().await.map_err(webError::from)?;
     let status = res.status();
     let mut client_resp = HttpResponse::build(status);
     for (header_name, header_value) in res
