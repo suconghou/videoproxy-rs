@@ -15,7 +15,7 @@ pub struct CacheMap<V: Clone> {
 
 struct TaskItem<V: Clone> {
     data: Option<V>,
-    rx: watch::Receiver<Option<V>>,
+    rx: Option<watch::Receiver<Option<V>>>,
     t: Instant,
 }
 
@@ -53,13 +53,13 @@ impl<V: Clone> CacheMap<V> {
             match pending.get(key) {
                 Some(item) => match &item.data {
                     Some(v) => return Some(v.clone()),
-                    None => AlreadyPending(item.rx.clone()),
+                    None => AlreadyPending(item.rx.as_ref().unwrap().clone()),
                 },
                 None => {
                     let (tx, rx) = watch::channel(None);
                     let item = TaskItem {
                         data: None,
-                        rx,
+                        rx: Some(rx),
                         t: Instant::now(),
                     };
                     pending.insert(key.clone(), item);
@@ -68,21 +68,27 @@ impl<V: Clone> CacheMap<V> {
             }
         } {
             AlreadyPending(mut rx) => {
+                let cache_it = |data: Option<V>| -> Option<V> {
+                    if data.is_some() {
+                        let mut pending = self.data.lock().unwrap();
+                        pending.insert(
+                            key.clone(),
+                            TaskItem {
+                                data: data.clone(),
+                                rx: None,
+                                t: Instant::now(),
+                            },
+                        );
+                    }
+                    data
+                };
                 if rx.changed().await.is_ok() {
-                    let v = rx.borrow();
-                    let vv = v.clone();
-                    let mut pending = self.data.lock().unwrap();
-                    pending.insert(
-                        key.clone(),
-                        TaskItem {
-                            data: vv,
-                            rx: rx.clone(),
-                            t: Instant::now(),
-                        },
-                    );
-                    v.clone()
+                    match rx.borrow().clone() {
+                        Some(v) => cache_it(Some(v)),
+                        None => cache_it(f().await),
+                    }
                 } else {
-                    f().await
+                    cache_it(f().await)
                 }
             }
             NewlyPending(tx) => {
