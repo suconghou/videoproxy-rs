@@ -233,6 +233,7 @@ fn request(client: web::Data<Client>, url: String, timeout: u64) -> ClientReques
         .timeout(Duration::from_secs(timeout))
 }
 
+#[inline]
 fn find_item(info: parser::VideoInfo, prefer: &String) -> Option<String> {
     for itag in prefer.split(',').chain(PREFER_LIST.split(',')) {
         match info.streams.get(itag) {
