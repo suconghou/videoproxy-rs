@@ -47,9 +47,9 @@ async fn main() -> std::io::Result<()> {
 
 fn opt() -> (String, String, String) {
     let mut opts: Vec<String> = vec![
-        "127.0.0.1:8080".to_string(),
-        "/public".to_string(),
-        "public".to_string(),
+        env::var("ADDR").unwrap_or("127.0.0.1:8080".to_string()),
+        env::var("PUBLIC_PATH").unwrap_or("/public".to_string()),
+        env::var("PUBLIC_DIR").unwrap_or("public".to_string()),
     ];
     let mut index = 0;
     let mut first = true;

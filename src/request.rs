@@ -7,13 +7,14 @@ use serde_json::value::Value;
 use std::collections::HashMap;
 use std::error::Error;
 use std::io;
+use std::sync::Arc;
 
 const LIMIT: usize = 1024 * 1024 * 5;
 
 pub async fn getplayer(
     client: &web::Data<Client>,
     vid: &String,
-) -> Result<HashMap<String, Value>, Box<dyn Error>> {
+) -> Result<Arc<HashMap<String, Value>>, Box<dyn Error>> {
     let real = || async {
         if let Ok(res) = getnetplayer(client, vid).await {
             return Some(res);
@@ -30,7 +31,7 @@ pub async fn getplayer(
 pub async fn getnetplayer(
     client: &web::Data<Client>,
     vid: &String,
-) -> Result<HashMap<String, Value>, Box<dyn Error>> {
+) -> Result<Arc<HashMap<String, Value>>, Box<dyn Error>> {
     let video_url = "https://youtubei.googleapis.com/youtubei/v1/player?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8";
     let req = serde_json::json!({
         "videoId": vid,
@@ -56,7 +57,7 @@ pub async fn getnetplayer(
                 .json::<HashMap<String, Value>>()
                 .limit(LIMIT)
                 .await?;
-            Ok(res)
+            Ok(Arc::new(res))
         }
         _ => {
             println!("status: failed {} {}", vid, response.status());

@@ -1,21 +1,23 @@
 use serde_json::value::Value;
 use std::future::Future;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use std::{collections::HashMap, sync::Mutex};
 use tokio::sync::watch;
 
+// HashMap<String, Value> 为我们缓存的JSON对象
 lazy_static! {
     pub static ref CACHE: CacheMap<HashMap<String, Value>> = CacheMap::new(3600);
 }
 
-pub struct CacheMap<V: Clone> {
+pub struct CacheMap<V> {
     data: Mutex<HashMap<String, TaskItem<V>>>,
     ttl: Duration,
 }
 
-struct TaskItem<V: Clone> {
-    data: Option<V>,
-    rx: Option<watch::Receiver<Option<V>>>,
+struct TaskItem<V> {
+    data: Option<Arc<V>>,
+    rx: Option<watch::Receiver<Option<Arc<V>>>>,
     t: Instant,
 }
 
@@ -29,7 +31,7 @@ enum GetPending<V> {
 
 use GetPending::*;
 
-impl<V: Clone> CacheMap<V> {
+impl<V> CacheMap<V> {
     pub fn new(ttl: u64) -> Self {
         Self {
             data: Mutex::new(HashMap::new()),
@@ -42,10 +44,10 @@ impl<V: Clone> CacheMap<V> {
         pending.retain(|_, v| v.t.elapsed() < self.ttl);
     }
 
-    pub async fn load_or_store<F, Fut>(&self, key: &String, f: F) -> Option<V>
+    pub async fn load_or_store<F, Fut>(&self, key: &String, f: F) -> Option<Arc<V>>
     where
         F: Fn() -> Fut,
-        Fut: Future<Output = Option<V>>,
+        Fut: Future<Output = Option<Arc<V>>>,
     {
         self.expire();
         match {
@@ -68,7 +70,7 @@ impl<V: Clone> CacheMap<V> {
             }
         } {
             AlreadyPending(mut rx) => {
-                let cache_it = |data: Option<V>| -> Option<V> {
+                let cache_it = |data: Option<Arc<V>>| -> Option<Arc<V>> {
                     if data.is_some() {
                         let mut pending = self.data.lock().unwrap();
                         pending.insert(
