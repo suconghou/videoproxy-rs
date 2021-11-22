@@ -1,5 +1,6 @@
 use crate::parser;
 use actix_web::client::{Client, ClientRequest};
+use actix_web::http::header::CACHE_CONTROL;
 use actix_web::http::StatusCode;
 use actix_web::{web, Error as webError, HttpRequest, HttpResponse, Responder};
 use core::time::Duration;
@@ -7,7 +8,7 @@ use std::error;
 use std::io::{Error, ErrorKind};
 
 // 暴露的headers, 此处需要是小写
-const EXPOSE_HEADERS: [&str; 7] = [
+const EXPOSE: &[&str] = &[
     "accept-ranges",
     "content-range",
     "content-length",
@@ -18,7 +19,7 @@ const EXPOSE_HEADERS: [&str; 7] = [
 ];
 
 // 转发的headers, 此处需要小写
-const FWD_HEADERS: [&str; 9] = [
+const FWD: &[&str] = &[
     "user-agent",
     "accept",
     "accept-encoding",
@@ -30,7 +31,7 @@ const FWD_HEADERS: [&str; 9] = [
     "content-type",
 ];
 
-const EXPOSE_HEADERS_SIMPLE: [&str; 5] = [
+const EXPOSE_SIMPLE: &[&str] = &[
     "content-length",
     "content-type",
     "content-encoding",
@@ -38,7 +39,7 @@ const EXPOSE_HEADERS_SIMPLE: [&str; 5] = [
     "etag",
 ];
 
-const FWD_HEADERS_SIMPLE: [&str; 8] = [
+const FWD_SIMPLE: &[&str] = &[
     "user-agent",
     "accept",
     "accept-encoding",
@@ -49,7 +50,6 @@ const FWD_HEADERS_SIMPLE: [&str; 8] = [
     "content-type",
 ];
 
-pub const CACHE_KEY: &str = "cache-control";
 pub const CACHE_VALUE: &str = "public,max-age=864000";
 
 const PREFER_LIST: &str =
@@ -161,33 +161,7 @@ async fn proxy(
     timeout: u64,
     err: Option<Box<dyn error::Error>>,
 ) -> impl Responder {
-    if err.is_some() {
-        return HttpResponse::InternalServerError()
-            .body(format!("{:?}", err.unwrap()))
-            .await;
-    }
-    let mut forwarded_req = request(client, url, timeout);
-
-    let r = req.headers();
-    for item in &FWD_HEADERS {
-        if r.contains_key(*item) {
-            forwarded_req = forwarded_req.set_header(*item, r.get(*item).unwrap().clone());
-        }
-    }
-    let res = forwarded_req.send().await.map_err(webError::from)?;
-    let status = res.status();
-    let mut client_resp = HttpResponse::build(status);
-    for (header_name, header_value) in res
-        .headers()
-        .iter()
-        .filter(|(h, _)| EXPOSE_HEADERS.contains(&h.as_str()))
-    {
-        client_resp.set_header(header_name.clone(), header_value.clone());
-    }
-    if status == StatusCode::OK {
-        client_resp.set_header(CACHE_KEY, CACHE_VALUE);
-    }
-    Ok(client_resp.streaming(res))
+    base_proxy(client, req, url, timeout, err, FWD, EXPOSE).await
 }
 
 async fn simple_proxy(
@@ -197,6 +171,18 @@ async fn simple_proxy(
     timeout: u64,
     err: Option<Box<dyn error::Error>>,
 ) -> impl Responder {
+    base_proxy(client, req, url, timeout, err, FWD_SIMPLE, EXPOSE_SIMPLE).await
+}
+
+async fn base_proxy(
+    client: web::Data<Client>,
+    req: HttpRequest,
+    url: String,
+    timeout: u64,
+    err: Option<Box<dyn error::Error>>,
+    forward_headers: &'static [&str],
+    expose_headers: &'static [&str],
+) -> impl Responder {
     if err.is_some() {
         return HttpResponse::InternalServerError()
             .body(format!("{:?}", err.unwrap()))
@@ -205,7 +191,7 @@ async fn simple_proxy(
     let mut forwarded_req = request(client, url, timeout);
 
     let r = req.headers();
-    for item in &FWD_HEADERS_SIMPLE {
+    for item in forward_headers {
         if r.contains_key(*item) {
             forwarded_req = forwarded_req.set_header(*item, r.get(*item).unwrap().clone());
         }
@@ -216,16 +202,17 @@ async fn simple_proxy(
     for (header_name, header_value) in res
         .headers()
         .iter()
-        .filter(|(h, _)| EXPOSE_HEADERS_SIMPLE.contains(&h.as_str()))
+        .filter(|(h, _)| expose_headers.contains(&h.as_str()))
     {
-        client_resp.set_header(header_name.clone(), header_value.clone());
+        client_resp.set_header(header_name, header_value.clone());
     }
     if status == StatusCode::OK {
-        client_resp.set_header(CACHE_KEY, CACHE_VALUE);
+        client_resp.set_header(CACHE_CONTROL, CACHE_VALUE);
     }
     Ok(client_resp.streaming(res))
 }
 
+#[inline]
 fn request(client: web::Data<Client>, url: String, timeout: u64) -> ClientRequest {
     client
         .get(url)

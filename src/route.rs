@@ -1,6 +1,7 @@
 use crate::handler;
 use actix_files as fs;
 use actix_web::client::Client;
+use actix_web::http::header::CACHE_CONTROL;
 use actix_web::{get, post, web, Error, HttpRequest, HttpResponse, Responder, Result};
 use serde::Deserialize;
 use std::path::PathBuf;
@@ -22,7 +23,7 @@ async fn vinfo(info: web::Path<(String, String)>, client: web::Data<Client>) -> 
     res.map_err(|err| HttpResponse::InternalServerError().body(format!("{:?}", err)))
         .map(|res| {
             HttpResponse::Ok()
-                .set_header(handler::CACHE_KEY, handler::CACHE_VALUE)
+                .set_header(CACHE_CONTROL, handler::CACHE_VALUE)
                 .json(res.clean())
         })
 }

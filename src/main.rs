@@ -13,6 +13,7 @@ mod cache {
 
 use actix_files as fs;
 use actix_web::client::Client;
+use actix_web::http::header::ACCESS_CONTROL_ALLOW_ORIGIN;
 use actix_web::{middleware, web, App, HttpServer};
 use std::env;
 
@@ -22,7 +23,7 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new()
             .data(Client::new())
-            .wrap(middleware::DefaultHeaders::new().header("access-control-allow-origin", "*"))
+            .wrap(middleware::DefaultHeaders::new().header(ACCESS_CONTROL_ALLOW_ORIGIN, "*"))
             .service(route::hello)
             .service(route::echo)
             .service(route::vinfo)
