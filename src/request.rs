@@ -28,7 +28,7 @@ pub async fn getplayer(
     getnetplayer(client, vid).await
 }
 
-pub async fn getnetplayer(
+async fn getnetplayer(
     client: &web::Data<Client>,
     vid: &String,
 ) -> Result<Arc<HashMap<String, Value>>, Box<dyn Error>> {
