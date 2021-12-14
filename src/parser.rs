@@ -1,6 +1,6 @@
 use crate::request;
-use actix_web::client::Client;
 use actix_web::web;
+use awc::Client;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::error::Error;

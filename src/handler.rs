@@ -1,8 +1,9 @@
 use crate::parser;
-use actix_web::client::{Client, ClientRequest};
 use actix_web::http::header::CACHE_CONTROL;
 use actix_web::http::StatusCode;
-use actix_web::{web, Error as webError, HttpRequest, HttpResponse, Responder};
+use actix_web::{web, HttpRequest, HttpResponse, Responder};
+use awc::Client;
+use awc::ClientRequest;
 use core::time::Duration;
 use std::error;
 use std::io::{Error, ErrorKind};
@@ -193,10 +194,16 @@ async fn base_proxy(
     let r = req.headers();
     for item in forward_headers {
         if r.contains_key(*item) {
-            forwarded_req = forwarded_req.set_header(*item, r.get(*item).unwrap().clone());
+            forwarded_req = forwarded_req.insert_header((*item, r.get(*item).unwrap().clone()));
         }
     }
-    let res = forwarded_req.send().await.map_err(webError::from)?;
+    let res = forwarded_req.send().await;
+    if res.is_err() {
+        return HttpResponse::InternalServerError()
+            .body(format!("{:?}", res.err()))
+            .await;
+    }
+    let res = res.unwrap();
     let status = res.status();
     let mut client_resp = HttpResponse::build(status);
     for (header_name, header_value) in res
@@ -204,12 +211,12 @@ async fn base_proxy(
         .iter()
         .filter(|(h, _)| expose_headers.contains(&h.as_str()))
     {
-        client_resp.set_header(header_name, header_value.clone());
+        client_resp.insert_header((header_name, header_value.clone()));
     }
     if status == StatusCode::OK {
-        client_resp.set_header(CACHE_CONTROL, CACHE_VALUE);
+        client_resp.insert_header((CACHE_CONTROL, CACHE_VALUE));
     }
-    Ok(client_resp.streaming(res))
+    client_resp.streaming(res).await
 }
 
 #[inline]

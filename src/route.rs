@@ -1,8 +1,8 @@
 use crate::handler;
 use actix_files as fs;
-use actix_web::client::Client;
 use actix_web::http::header::CACHE_CONTROL;
 use actix_web::{get, post, web, Error, HttpRequest, HttpResponse, Responder, Result};
+use awc::Client;
 use serde::Deserialize;
 use std::path::PathBuf;
 
@@ -20,12 +20,12 @@ async fn hello() -> impl Responder {
 async fn vinfo(info: web::Path<(String, String)>, client: web::Data<Client>) -> impl Responder {
     let info = info.into_inner();
     let res = handler::get_info(&client, &info.0).await;
-    res.map_err(|err| HttpResponse::InternalServerError().body(format!("{:?}", err)))
-        .map(|res| {
-            HttpResponse::Ok()
-                .set_header(CACHE_CONTROL, handler::CACHE_VALUE)
-                .json(res.clean())
-        })
+    if res.is_err() {
+        return HttpResponse::InternalServerError().body(format!("{:?}", res.err()));
+    }
+    HttpResponse::Ok()
+        .insert_header((CACHE_CONTROL, handler::CACHE_VALUE))
+        .json(res.unwrap().clean())
 }
 
 #[get("/video/{vid:[\\w\\-]{6,15}}.{ext:(jpg|webp)}")]
