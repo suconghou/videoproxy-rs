@@ -13,6 +13,7 @@ mod cache {
 
 use actix_files as fs;
 use actix_web::http::header::ACCESS_CONTROL_ALLOW_ORIGIN;
+use actix_web::web::Data;
 use actix_web::{middleware, web, App, HttpServer};
 use std::env;
 
@@ -21,7 +22,7 @@ async fn main() -> std::io::Result<()> {
     let (addr, mount_path, serve_from) = opt();
     HttpServer::new(move || {
         App::new()
-            .app_data(awc::Client::new())
+            .app_data(Data::new(awc::Client::new()))
             .wrap(middleware::DefaultHeaders::new().header(ACCESS_CONTROL_ALLOW_ORIGIN, "*"))
             .service(route::hello)
             .service(route::echo)
