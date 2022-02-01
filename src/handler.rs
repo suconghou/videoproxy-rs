@@ -185,9 +185,7 @@ async fn base_proxy(
     expose_headers: &'static [&str],
 ) -> impl Responder {
     if err.is_some() {
-        return HttpResponse::InternalServerError()
-            .body(format!("{:?}", err.unwrap()))
-            .await;
+        return HttpResponse::InternalServerError().body(format!("{:?}", err.unwrap()));
     }
     let mut forwarded_req = request(client, url, timeout);
 
@@ -199,9 +197,7 @@ async fn base_proxy(
     }
     let res = forwarded_req.send().await;
     if res.is_err() {
-        return HttpResponse::InternalServerError()
-            .body(format!("{:?}", res.err()))
-            .await;
+        return HttpResponse::InternalServerError().body(format!("{:?}", res.err()));
     }
     let res = res.unwrap();
     let status = res.status();
@@ -216,7 +212,7 @@ async fn base_proxy(
     if status == StatusCode::OK {
         client_resp.insert_header((CACHE_CONTROL, CACHE_VALUE));
     }
-    client_resp.streaming(res).await
+    client_resp.streaming(res)
 }
 
 #[inline]
