@@ -197,7 +197,7 @@ async fn base_proxy(
     }
     let res = forwarded_req.send().await;
     if res.is_err() {
-        return HttpResponse::InternalServerError().body(format!("{:?}", res.err()));
+        return HttpResponse::InternalServerError().body(format!("{:?}", res.err().unwrap()));
     }
     let res = res.unwrap();
     let status = res.status();

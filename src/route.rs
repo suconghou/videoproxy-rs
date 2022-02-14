@@ -21,7 +21,7 @@ async fn vinfo(info: web::Path<(String, String)>, client: web::Data<Client>) -> 
     let info = info.into_inner();
     let res = handler::get_info(&client, &info.0).await;
     if res.is_err() {
-        return HttpResponse::InternalServerError().body(format!("{:?}", res.err()));
+        return HttpResponse::InternalServerError().body(format!("{:?}", res.err().unwrap()));
     }
     HttpResponse::Ok()
         .insert_header((CACHE_CONTROL, handler::CACHE_VALUE))
