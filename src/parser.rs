@@ -69,17 +69,14 @@ pub async fn parse(client: &web::Data<Client>, vid: &String) -> Result<VideoInfo
             .to_string(),
         streams: stream_items,
     };
-    let empty = vec![serde_json::to_value("[]").unwrap()];
-    let video_info_itags = match res["streamingData"]["formats"].as_array() {
-        Some(itags) => itags,
-        None => &empty,
-    };
-    let video_info_itags_adaptive = match res["streamingData"]["adaptiveFormats"].as_array() {
-        Some(itags) => itags,
-        None => &empty,
-    };
-
-    for item in video_info_itags.iter().chain(video_info_itags_adaptive) {
+    let mut streams: Vec<serde_json::Value> = [].to_vec();
+    if let Some(video_info_itags) = res["streamingData"]["formats"].as_array() {
+        streams = [streams, video_info_itags.to_vec()].concat();
+    }
+    if let Some(video_info_itags_adaptive) = res["streamingData"]["adaptiveFormats"].as_array() {
+        streams = [streams, video_info_itags_adaptive.to_vec()].concat();
+    }
+    for item in streams {
         let i = item["itag"].as_u64().unwrap_or(0);
         let itag = i.to_string();
         let itags = i.to_string();
