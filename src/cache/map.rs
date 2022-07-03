@@ -40,9 +40,13 @@ impl<V> CacheMap<V> {
         }
     }
 
-    fn expire(&self) {
+    pub fn expire(&self) {
         let mut pending = self.data.lock().unwrap();
-        pending.retain(|_, v| v.t.elapsed() < v.ttl);
+        pending.retain(|_, v| v.t.elapsed() < v.ttl || v.rx.is_some());
+    }
+
+    pub fn len(&self) -> usize {
+        return self.data.lock().unwrap().len();
     }
 
     pub async fn load_or_store<F, Fut>(&self, key: &String, f: F, ttl: u64) -> Option<Arc<V>>

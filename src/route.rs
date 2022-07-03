@@ -1,3 +1,4 @@
+use crate::cache::map::{CACHEDATA, CACHEJSON};
 use crate::handler;
 use crate::hls::playlist;
 use actix_files as fs;
@@ -25,7 +26,10 @@ async fn vinfo(info: web::Path<(String, String)>, client: web::Data<Client>) -> 
         return HttpResponse::InternalServerError().body(format!("{:?}", res.err().unwrap()));
     }
     HttpResponse::Ok()
-        .insert_header((CACHE_CONTROL, "public,max-age=3600"))
+        .insert_header((
+            CACHE_CONTROL,
+            format!("public,max-age=3600{}", CACHEJSON.len()),
+        ))
         .json(res.unwrap().clean())
 }
 
@@ -38,6 +42,7 @@ async fn hls(info: web::Path<(String, String)>, client: web::Data<Client>) -> im
     }
     HttpResponse::Ok()
         .content_type("application/vnd.apple.mpegurl")
+        .insert_header((CACHE_CONTROL, format!("public,max-age={}", CACHEDATA.len())))
         .body(res.unwrap())
 }
 
