@@ -75,15 +75,21 @@ impl<V> CacheMap<V> {
                 let cache_it = |data: Option<Arc<V>>| -> Option<Arc<V>> {
                     if data.is_some() {
                         let mut pending = self.data.lock().unwrap();
-                        pending.insert(
-                            key.clone(),
-                            TaskItem {
-                                data: data.clone(),
-                                rx: None,
-                                t: Instant::now(),
-                                ttl: Duration::from_secs(ttl),
-                            },
-                        );
+                        if let Some(mut o) = pending.get_mut(key) {
+                            o.data = data.clone();
+                            o.rx = None;
+                            o.t = Instant::now();
+                        } else {
+                            pending.insert(
+                                key.clone(),
+                                TaskItem {
+                                    data: data.clone(),
+                                    rx: None,
+                                    t: Instant::now(),
+                                    ttl: Duration::from_secs(ttl),
+                                },
+                            );
+                        }
                     }
                     data
                 };
@@ -98,6 +104,15 @@ impl<V> CacheMap<V> {
             }
             NewlyPending(tx) => {
                 let v = f().await;
+                self.data.lock().unwrap().insert(
+                    key.clone(),
+                    TaskItem {
+                        data: v.clone(),
+                        rx: None,
+                        t: Instant::now(),
+                        ttl: Duration::from_secs(ttl),
+                    },
+                );
                 tx.send(v.clone()).unwrap_or_default();
                 v
             }
