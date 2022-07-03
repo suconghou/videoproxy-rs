@@ -16,7 +16,7 @@ async fn get_hls_master(
     vid: &String,
 ) -> Result<Arc<Bytes>, Box<dyn error::Error>> {
     let url = parser::parse_url(client, vid, "hlsManifestUrl").await?;
-    let data = request::getdata(client, &url, 3600, 2 << 20).await?;
+    let data = request::getdata(client, &url, 600, 2 << 20).await?;
     Ok(data)
 }
 
@@ -76,10 +76,10 @@ pub async fn playlist_index(
     Ok(text)
 }
 
-pub async fn playlist_ts(vid: &String, ts: &String) -> Result<Bytes, Box<dyn error::Error>> {
+pub async fn playlist_ts(vid: &String, ts: &String) -> Result<Arc<Bytes>, Box<dyn error::Error>> {
     let res = ts::get_task(ts).await;
     if let Some(data) = res {
-        return Ok(data.slice(..));
+        return Ok(data);
     }
     return Err(Box::new(io::Error::new(
         io::ErrorKind::NotFound,

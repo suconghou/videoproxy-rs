@@ -1,7 +1,7 @@
 use crate::handler;
 use crate::hls::playlist;
 use actix_files as fs;
-use actix_web::http::header::{CACHE_CONTROL, CONTENT_TYPE};
+use actix_web::http::header::CACHE_CONTROL;
 use actix_web::{get, post, web, Error, HttpRequest, HttpResponse, Responder, Result};
 use awc::Client;
 use serde::Deserialize;
@@ -37,7 +37,7 @@ async fn hls(info: web::Path<(String, String)>, client: web::Data<Client>) -> im
         return HttpResponse::InternalServerError().body(format!("{:?}", res.err().unwrap()));
     }
     HttpResponse::Ok()
-        .insert_header((CONTENT_TYPE, "application/vnd.apple.mpegurl"))
+        .content_type("application/vnd.apple.mpegurl")
         .body(res.unwrap())
 }
 
@@ -49,7 +49,7 @@ async fn hls_list(info: web::Path<(String, String)>, client: web::Data<Client>) 
         return HttpResponse::InternalServerError().body(format!("{:?}", res.err().unwrap()));
     }
     HttpResponse::Ok()
-        .insert_header((CONTENT_TYPE, "application/vnd.apple.mpegurl"))
+        .content_type("application/vnd.apple.mpegurl")
         .body(res.unwrap())
 }
 
@@ -62,8 +62,7 @@ async fn hls_ts(info: web::Path<(String, String)>) -> impl Responder {
     }
     HttpResponse::Ok()
         .insert_header((CACHE_CONTROL, "public,max-age=3600"))
-        .insert_header((CACHE_CONTROL, "public,max-age=3600"))
-        .body(res.unwrap())
+        .body(res.unwrap().slice(..))
 }
 
 #[get("/video/{vid:[\\w\\-]{6,15}}.{ext:(jpg|webp)}")]

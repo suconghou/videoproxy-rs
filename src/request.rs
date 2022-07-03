@@ -1,5 +1,5 @@
 use crate::cache::map::{CACHEDATA, CACHEJSON};
-use actix_web::http::header::{ACCEPT_LANGUAGE, CONTENT_TYPE, USER_AGENT};
+use actix_web::http::header::{ACCEPT_LANGUAGE, USER_AGENT};
 use actix_web::http::StatusCode;
 use actix_web::web::{self, Bytes};
 use awc::Client;
@@ -47,8 +47,8 @@ async fn getnetplayer(
     let mut response = client
         .post(video_url)
         .timeout(Duration::from_secs(10))
+        .content_type("application/json")
         .insert_header((USER_AGENT, "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.81 Safari/537.36"))
-        .insert_header((CONTENT_TYPE, "application/json"))
         .insert_header((ACCEPT_LANGUAGE, "zh-CN,zh;q=0.9,en;q=0.8"))
         .send_json(&req)
         .await?;

@@ -13,7 +13,7 @@ const MAX_THREAD: u32 = 5;
 
 pub async fn put_task(client: web::Data<Client>, uid: String, url: String) -> Option<Arc<Bytes>> {
     let limit = 15 << 20;
-    let ttl = 300;
+    let ttl = 120;
     let real = || async {
         let t = Duration::from_millis(200);
         loop {
