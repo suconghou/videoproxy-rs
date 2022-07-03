@@ -1,3 +1,4 @@
+use actix_web::web::Bytes;
 use serde_json::value::Value;
 use std::future::Future;
 use std::sync::Arc;
@@ -7,18 +8,19 @@ use tokio::sync::watch;
 
 // HashMap<String, Value> 为我们缓存的JSON对象
 lazy_static! {
-    pub static ref CACHE: CacheMap<HashMap<String, Value>> = CacheMap::new(3600);
+    pub static ref CACHEJSON: CacheMap<HashMap<String, Value>> = CacheMap::new();
+    pub static ref CACHEDATA: CacheMap<Bytes> = CacheMap::new();
 }
 
 pub struct CacheMap<V> {
     data: Mutex<HashMap<String, TaskItem<V>>>,
-    ttl: Duration,
 }
 
 struct TaskItem<V> {
     data: Option<Arc<V>>,
     rx: Option<watch::Receiver<Option<Arc<V>>>>,
     t: Instant,
+    ttl: Duration,
 }
 
 type PendingReceiver<V> = watch::Receiver<Option<V>>;
@@ -32,19 +34,18 @@ enum GetPending<V> {
 use GetPending::*;
 
 impl<V> CacheMap<V> {
-    pub fn new(ttl: u64) -> Self {
+    pub fn new() -> Self {
         Self {
             data: Mutex::new(HashMap::new()),
-            ttl: Duration::from_secs(ttl),
         }
     }
 
     fn expire(&self) {
         let mut pending = self.data.lock().unwrap();
-        pending.retain(|_, v| v.t.elapsed() < self.ttl);
+        pending.retain(|_, v| v.t.elapsed() < v.ttl);
     }
 
-    pub async fn load_or_store<F, Fut>(&self, key: &String, f: F) -> Option<Arc<V>>
+    pub async fn load_or_store<F, Fut>(&self, key: &String, f: F, ttl: u64) -> Option<Arc<V>>
     where
         F: Fn() -> Fut,
         Fut: Future<Output = Option<Arc<V>>>,
@@ -63,6 +64,7 @@ impl<V> CacheMap<V> {
                         data: None,
                         rx: Some(rx),
                         t: Instant::now(),
+                        ttl: Duration::from_secs(ttl),
                     };
                     pending.insert(key.clone(), item);
                     NewlyPending(tx)
@@ -79,6 +81,7 @@ impl<V> CacheMap<V> {
                                 data: data.clone(),
                                 rx: None,
                                 t: Instant::now(),
+                                ttl: Duration::from_secs(ttl),
                             },
                         );
                     }

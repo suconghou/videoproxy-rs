@@ -7,8 +7,13 @@ mod handler;
 mod parser;
 mod request;
 mod route;
+mod util;
 mod cache {
     pub mod map;
+}
+mod hls {
+    pub mod playlist;
+    pub mod ts;
 }
 
 use actix_files as fs;
@@ -31,6 +36,9 @@ async fn main() -> std::io::Result<()> {
             .service(route::stream)
             .service(route::streamts)
             .service(route::streamauto)
+            .service(route::hls)
+            .service(route::hls_list)
+            .service(route::hls_ts)
             .service(
                 fs::Files::new(&mount_path, serve_from.clone())
                     .show_files_listing()
@@ -48,9 +56,9 @@ async fn main() -> std::io::Result<()> {
 
 fn opt() -> (String, String, String) {
     let mut opts: Vec<String> = vec![
-        env::var("ADDR").unwrap_or("127.0.0.1:8080".to_string()),
-        env::var("PUBLIC_PATH").unwrap_or("/public".to_string()),
-        env::var("PUBLIC_DIR").unwrap_or("public".to_string()),
+        env::var("ADDR").unwrap_or("127.0.0.1:8080".to_owned()),
+        env::var("PUBLIC_PATH").unwrap_or("/public".to_owned()),
+        env::var("PUBLIC_DIR").unwrap_or("public".to_owned()),
     ];
     let mut index = 0;
     let mut first = true;

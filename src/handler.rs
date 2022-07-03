@@ -51,8 +51,6 @@ const FWD_SIMPLE: &[&str] = &[
     "content-type",
 ];
 
-pub const CACHE_VALUE: &str = "public,max-age=864000";
-
 const PREFER_LIST: &str =
     "18,59,22,37,243,134,396,244,135,397,247,136,302,398,248,137,242,133,395,278,598,160,597";
 
@@ -210,7 +208,7 @@ async fn base_proxy(
         client_resp.insert_header((header_name, header_value.clone()));
     }
     if status == StatusCode::OK {
-        client_resp.insert_header((CACHE_CONTROL, CACHE_VALUE));
+        client_resp.insert_header((CACHE_CONTROL, "public,max-age=86400"));
     }
     client_resp.streaming(res)
 }

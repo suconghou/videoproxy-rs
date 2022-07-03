@@ -1,6 +1,7 @@
 use crate::handler;
+use crate::hls::playlist;
 use actix_files as fs;
-use actix_web::http::header::CACHE_CONTROL;
+use actix_web::http::header::{CACHE_CONTROL, CONTENT_TYPE};
 use actix_web::{get, post, web, Error, HttpRequest, HttpResponse, Responder, Result};
 use awc::Client;
 use serde::Deserialize;
@@ -24,8 +25,45 @@ async fn vinfo(info: web::Path<(String, String)>, client: web::Data<Client>) -> 
         return HttpResponse::InternalServerError().body(format!("{:?}", res.err().unwrap()));
     }
     HttpResponse::Ok()
-        .insert_header((CACHE_CONTROL, handler::CACHE_VALUE))
+        .insert_header((CACHE_CONTROL, "public,max-age=3600"))
         .json(res.unwrap().clean())
+}
+
+#[get("/video/{vid:[\\w\\-]{6,15}}.{ext:(m3u8)}")]
+async fn hls(info: web::Path<(String, String)>, client: web::Data<Client>) -> impl Responder {
+    let info = info.into_inner();
+    let res = playlist::playlist_master(&client, &info.0).await;
+    if res.is_err() {
+        return HttpResponse::InternalServerError().body(format!("{:?}", res.err().unwrap()));
+    }
+    HttpResponse::Ok()
+        .insert_header((CONTENT_TYPE, "application/vnd.apple.mpegurl"))
+        .body(res.unwrap())
+}
+
+#[get("/video/playlist/{vid:[\\w\\-]{6,15}}/{list:[\\w]{1,8}}.{ext:(m3u8)}")]
+async fn hls_list(info: web::Path<(String, String)>, client: web::Data<Client>) -> impl Responder {
+    let info = info.into_inner();
+    let res = playlist::playlist_index(&client, &info.0, &info.1).await;
+    if res.is_err() {
+        return HttpResponse::InternalServerError().body(format!("{:?}", res.err().unwrap()));
+    }
+    HttpResponse::Ok()
+        .insert_header((CONTENT_TYPE, "application/vnd.apple.mpegurl"))
+        .body(res.unwrap())
+}
+
+#[get("/video/{vid:[\\w\\-]{6,15}}/{uid:[\\w]{1,8}}.{ext:(ts)}")]
+async fn hls_ts(info: web::Path<(String, String)>) -> impl Responder {
+    let info = info.into_inner();
+    let res = playlist::playlist_ts(&info.0, &info.1).await;
+    if res.is_err() {
+        return HttpResponse::InternalServerError().body(format!("{:?}", res.err().unwrap()));
+    }
+    HttpResponse::Ok()
+        .insert_header((CACHE_CONTROL, "public,max-age=3600"))
+        .insert_header((CACHE_CONTROL, "public,max-age=3600"))
+        .body(res.unwrap())
 }
 
 #[get("/video/{vid:[\\w\\-]{6,15}}.{ext:(jpg|webp)}")]
