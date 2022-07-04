@@ -56,10 +56,8 @@ impl<V> CacheMap<V> {
     {
         self.expire();
         match {
-            let p = self.data.read().unwrap();
-            let r = p.get(key);
-            drop(&p);
-            match r {
+            let mut data = self.data.write().unwrap();
+            match data.get(key) {
                 Some(item) => match &item.data {
                     Some(v) => return Some(v.clone()),
                     None => AlreadyPending(item.rx.as_ref().unwrap().clone()),
@@ -72,25 +70,24 @@ impl<V> CacheMap<V> {
                         t: Instant::now(),
                         ttl: Duration::from_secs(ttl),
                     };
-                    self.data.write().unwrap().insert(key.clone(), item);
+                    data.insert(key.clone(), item);
                     NewlyPending(tx)
                 }
             }
         } {
             AlreadyPending(mut rx) => {
-                let cache_it = |data: Option<Arc<V>>| -> Option<Arc<V>> {
-                    if data.is_some() {
-                        let mut p = self.data.write().unwrap();
-                        let item = p.get_mut(key);
-                        if let Some(mut o) = item {
-                            o.data = data.clone();
+                let cache_it = |v: Option<Arc<V>>| -> Option<Arc<V>> {
+                    if v.is_some() {
+                        let mut data = self.data.write().unwrap();
+                        if let Some(mut o) = data.get_mut(key) {
+                            o.data = v.clone();
                             o.rx = None;
                             o.t = Instant::now();
                         } else {
-                            p.insert(
+                            data.insert(
                                 key.clone(),
                                 TaskItem {
-                                    data: data.clone(),
+                                    data: v.clone(),
                                     rx: None,
                                     t: Instant::now(),
                                     ttl: Duration::from_secs(ttl),
@@ -98,7 +95,7 @@ impl<V> CacheMap<V> {
                             );
                         }
                     }
-                    data
+                    v
                 };
                 if rx.changed().await.is_ok() {
                     match rx.borrow().clone() {
