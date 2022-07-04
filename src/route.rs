@@ -1,6 +1,6 @@
 use crate::cache::map::{CACHEDATA, CACHEJSON};
 use crate::handler;
-use crate::hls::playlist;
+use crate::hls::{playlist, ts};
 use actix_files as fs;
 use actix_web::http::header::CACHE_CONTROL;
 use actix_web::{get, post, web, Error, HttpRequest, HttpResponse, Responder, Result};
@@ -55,6 +55,7 @@ async fn hls_list(info: web::Path<(String, String)>, client: web::Data<Client>) 
     }
     HttpResponse::Ok()
         .content_type("application/vnd.apple.mpegurl")
+        .insert_header((CACHE_CONTROL, format!("public,max-age={}", ts::thread())))
         .body(res.unwrap())
 }
 

@@ -38,3 +38,7 @@ pub async fn get_task(uid: &String) -> Option<Arc<Bytes>> {
     let item = CACHEDATA.load_or_store(uid, real, 1).await;
     item
 }
+
+pub fn thread() -> u32 {
+    THREAD.load(atomic::Ordering::Relaxed)
+}

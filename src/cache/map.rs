@@ -1,9 +1,9 @@
 use actix_web::web::Bytes;
 use serde_json::value::Value;
+use std::collections::HashMap;
 use std::future::Future;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
-use std::{collections::HashMap, sync::Mutex};
 use tokio::sync::watch;
 
 // HashMap<String, Value> 为我们缓存的JSON对象
@@ -13,7 +13,7 @@ lazy_static! {
 }
 
 pub struct CacheMap<V> {
-    data: Mutex<HashMap<String, TaskItem<V>>>,
+    data: RwLock<HashMap<String, TaskItem<V>>>,
 }
 
 struct TaskItem<V> {
@@ -36,17 +36,17 @@ use GetPending::*;
 impl<V> CacheMap<V> {
     pub fn new() -> Self {
         Self {
-            data: Mutex::new(HashMap::new()),
+            data: RwLock::new(HashMap::new()),
         }
     }
 
     pub fn expire(&self) {
-        let mut pending = self.data.lock().unwrap();
+        let mut pending = self.data.write().unwrap();
         pending.retain(|_, v| v.t.elapsed() < v.ttl || v.rx.is_some());
     }
 
     pub fn len(&self) -> usize {
-        return self.data.lock().unwrap().len();
+        return self.data.read().unwrap().len();
     }
 
     pub async fn load_or_store<F, Fut>(&self, key: &String, f: F, ttl: u64) -> Option<Arc<V>>
@@ -56,8 +56,10 @@ impl<V> CacheMap<V> {
     {
         self.expire();
         match {
-            let mut pending = self.data.lock().unwrap();
-            match pending.get(key) {
+            let p = self.data.read().unwrap();
+            let r = p.get(key);
+            drop(&p);
+            match r {
                 Some(item) => match &item.data {
                     Some(v) => return Some(v.clone()),
                     None => AlreadyPending(item.rx.as_ref().unwrap().clone()),
@@ -70,7 +72,7 @@ impl<V> CacheMap<V> {
                         t: Instant::now(),
                         ttl: Duration::from_secs(ttl),
                     };
-                    pending.insert(key.clone(), item);
+                    self.data.write().unwrap().insert(key.clone(), item);
                     NewlyPending(tx)
                 }
             }
@@ -78,13 +80,14 @@ impl<V> CacheMap<V> {
             AlreadyPending(mut rx) => {
                 let cache_it = |data: Option<Arc<V>>| -> Option<Arc<V>> {
                     if data.is_some() {
-                        let mut pending = self.data.lock().unwrap();
-                        if let Some(mut o) = pending.get_mut(key) {
+                        let mut p = self.data.write().unwrap();
+                        let item = p.get_mut(key);
+                        if let Some(mut o) = item {
                             o.data = data.clone();
                             o.rx = None;
                             o.t = Instant::now();
                         } else {
-                            pending.insert(
+                            p.insert(
                                 key.clone(),
                                 TaskItem {
                                     data: data.clone(),
@@ -108,7 +111,7 @@ impl<V> CacheMap<V> {
             }
             NewlyPending(tx) => {
                 let v = f().await;
-                self.data.lock().unwrap().insert(
+                self.data.write().unwrap().insert(
                     key.clone(),
                     TaskItem {
                         data: v.clone(),
