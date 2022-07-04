@@ -31,7 +31,7 @@ pub async fn playlist_master(
             uid = util::hash(&f);
             return f + "\r\n";
         }
-        "/video/playlist/".to_owned() + vid + "/" + &uid + ".m3u8\r\n"
+        "/video/".to_owned() + vid + "/" + &uid + ".m3u8\r\n"
     });
     let text = lines.collect();
     Ok(text)

@@ -46,7 +46,7 @@ async fn hls(info: web::Path<(String, String)>, client: web::Data<Client>) -> im
         .body(res.unwrap())
 }
 
-#[get("/video/playlist/{vid:[\\w\\-]{6,15}}/{list:[\\w]{1,8}}.{ext:(m3u8)}")]
+#[get("/video/{vid:[\\w\\-]{6,15}}/{list:[\\w]{1,8}}.{ext:(m3u8)}")]
 async fn hls_list(info: web::Path<(String, String)>, client: web::Data<Client>) -> impl Responder {
     let info = info.into_inner();
     let res = playlist::playlist_index(&client, &info.0, &info.1).await;
