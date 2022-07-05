@@ -1,15 +1,20 @@
 use std::{
-    sync::{atomic, Arc},
+    ops::{AddAssign, SubAssign},
+    sync::Arc,
     time::Duration,
 };
 
 use actix_web::web::{self, Bytes};
 use awc::Client;
+use tokio::sync::Mutex;
 
 use crate::{cache::map::CACHEDATA, request};
 
-static THREAD: atomic::AtomicU32 = atomic::AtomicU32::new(0);
-const MAX_THREAD: u32 = 5;
+lazy_static! {
+    static ref THREAD: Mutex<i32> = Mutex::new(0);
+}
+
+const MAX_THREAD: i32 = 5;
 
 pub async fn put_task(client: web::Data<Client>, uid: String, url: String) -> Option<Arc<Bytes>> {
     let limit = 15 << 20;
@@ -17,14 +22,18 @@ pub async fn put_task(client: web::Data<Client>, uid: String, url: String) -> Op
     let real = || async {
         let t = Duration::from_millis(200);
         loop {
-            if THREAD.load(atomic::Ordering::Relaxed) >= MAX_THREAD {
-                tokio::time::sleep(t).await;
+            {
+                let mut n = THREAD.lock().await; // 持有锁，保持判断和自增原子性
+                if n.lt(&MAX_THREAD) {
+                    n.add_assign(1);
+                    break;
+                }
+                // 离开作用域时释放锁
             }
-            break;
+            tokio::time::sleep(t).await;
         }
-        THREAD.fetch_add(1, atomic::Ordering::Relaxed);
         let r = request::req_get(&client, &url, limit).await;
-        THREAD.fetch_sub(1, atomic::Ordering::Relaxed);
+        THREAD.lock().await.sub_assign(1); // 直到return时才释放锁
         if let Ok(res) = r {
             return Some(res);
         }
@@ -39,6 +48,6 @@ pub async fn get_task(uid: &String) -> Option<Arc<Bytes>> {
     item
 }
 
-pub fn thread() -> u32 {
-    THREAD.load(atomic::Ordering::Relaxed)
+pub async fn thread() -> i32 {
+    THREAD.lock().await.clone()
 }

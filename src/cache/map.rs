@@ -108,15 +108,18 @@ impl<V> CacheMap<V> {
             }
             NewlyPending(tx) => {
                 let v = f().await;
-                self.data.write().unwrap().insert(
-                    key.clone(),
-                    TaskItem {
-                        data: v.clone(),
-                        rx: None,
-                        t: Instant::now(),
-                        ttl: Duration::from_secs(ttl),
-                    },
-                );
+                // 我们必须保证data和rx不能都是None
+                if v.is_some() {
+                    self.data.write().unwrap().insert(
+                        key.clone(),
+                        TaskItem {
+                            data: v.clone(),
+                            rx: None,
+                            t: Instant::now(),
+                            ttl: Duration::from_secs(ttl),
+                        },
+                    );
+                }
                 tx.send(v.clone()).unwrap_or_default();
                 v
             }

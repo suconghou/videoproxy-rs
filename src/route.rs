@@ -55,7 +55,10 @@ async fn hls_list(info: web::Path<(String, String)>, client: web::Data<Client>) 
     }
     HttpResponse::Ok()
         .content_type("application/vnd.apple.mpegurl")
-        .insert_header((CACHE_CONTROL, format!("public,max-age={}", ts::thread())))
+        .insert_header((
+            CACHE_CONTROL,
+            format!("public,max-age={}", ts::thread().await),
+        ))
         .body(res.unwrap())
 }
 

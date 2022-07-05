@@ -63,7 +63,7 @@ pub async fn playlist_index(
             )))
         }
     };
-    let data = request::getdata(client, &u, 5, 2 << 20).await?;
+    let data = request::getdata(client, &u, 5, 5 << 20).await?;
     let lines = data.lines().map(|f| f.unwrap()).map(|f| {
         if f.starts_with("#") {
             return f + "\r\n";

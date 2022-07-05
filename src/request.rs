@@ -1,5 +1,5 @@
 use crate::cache::map::{CACHEDATA, CACHEJSON};
-use actix_web::http::header::{ACCEPT_LANGUAGE, USER_AGENT};
+use actix_web::http::header::{HeaderName, ACCEPT_LANGUAGE, USER_AGENT};
 use actix_web::http::StatusCode;
 use actix_web::web::{self, Bytes};
 use awc::Client;
@@ -9,6 +9,10 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::io;
 use std::sync::Arc;
+
+const UA: (HeaderName, &str) = (USER_AGENT, "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/103.0.0.0 Safari/537.36");
+const AL: (HeaderName, &str) = (ACCEPT_LANGUAGE, "zh-CN,zh;q=0.9,en;q=0.8");
+const TIMEOUT: std::time::Duration = Duration::from_secs(10);
 
 pub async fn getplayer(
     client: &web::Data<Client>,
@@ -46,10 +50,10 @@ async fn getnetplayer(
 
     let mut response = client
         .post(video_url)
-        .timeout(Duration::from_secs(10))
+        .timeout(TIMEOUT)
         .content_type("application/json")
-        .insert_header((USER_AGENT, "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.81 Safari/537.36"))
-        .insert_header((ACCEPT_LANGUAGE, "zh-CN,zh;q=0.9,en;q=0.8"))
+        .insert_header(UA)
+        .insert_header(AL)
         .send_json(&req)
         .await?;
     match response.status() {
@@ -98,7 +102,9 @@ pub async fn req_get(
 ) -> Result<Arc<Bytes>, Box<dyn Error>> {
     let mut response = client
         .get(url)
-        .timeout(Duration::from_secs(10))
+        .timeout(TIMEOUT)
+        .insert_header(UA)
+        .insert_header(AL)
         .send()
         .await?;
     let res = response.body().limit(limit as usize).await?;
