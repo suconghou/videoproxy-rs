@@ -47,7 +47,7 @@ impl<V> CacheMap<V> {
     }
 
     pub async fn len(&self) -> usize {
-        return self.data.read().await.len();
+        self.data.read().await.len()
     }
 
     pub async fn load_or_store<F, Fut>(&self, key: &String, f: F, ttl: u64) -> Option<Arc<V>>

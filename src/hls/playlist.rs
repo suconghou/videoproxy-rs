@@ -78,11 +78,10 @@ pub async fn playlist_index(
 
 pub async fn playlist_ts(vid: &String, ts: &String) -> Result<Arc<Bytes>, Box<dyn error::Error>> {
     let res = ts::get_task(ts).await;
-    if let Some(data) = res {
-        return Ok(data);
-    }
-    return Err(Box::new(io::Error::new(
-        io::ErrorKind::NotFound,
-        format!("{} {}", vid, ts),
-    )));
+    res.ok_or_else(|| -> Box<dyn error::Error> {
+        Box::new(io::Error::new(
+            io::ErrorKind::NotFound,
+            format!("{} {}", vid, ts),
+        ))
+    })
 }

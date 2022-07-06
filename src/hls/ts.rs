@@ -42,10 +42,7 @@ pub async fn put_task(client: web::Data<Client>, uid: String, url: String) -> Op
         }
         let r = request::req_get(&client, &url, limit).await;
         THREAD.lock().await.sub_assign(1); // 直到return时才释放锁
-        if let Ok(res) = r {
-            return Some(res);
-        }
-        return None;
+        r.ok()
     };
     CACHEDATA.load_or_store(&uid, real, ttl).await
 }

@@ -19,12 +19,7 @@ pub async fn getplayer(
     vid: &String,
 ) -> Result<Arc<HashMap<String, Value>>, Box<dyn Error>> {
     let limit = 5 << 20;
-    let real = || async {
-        if let Ok(res) = getnetplayer(client, vid, limit).await {
-            return Some(res);
-        }
-        return None;
-    };
+    let real = || async { getnetplayer(client, vid, limit).await.ok() };
     let item = CACHEJSON.load_or_store(vid, real, 3600).await;
     if let Some(res) = item {
         return Ok(res);
@@ -82,12 +77,7 @@ pub async fn getdata(
     ttl: u64,
     limit: u32,
 ) -> Result<Arc<Bytes>, Box<dyn Error>> {
-    let real = || async {
-        if let Ok(res) = req_get(client, url, limit).await {
-            return Some(res);
-        }
-        return None;
-    };
+    let real = || async { req_get(client, url, limit).await.ok() };
     let item = CACHEDATA.load_or_store(url, real, ttl).await;
     if let Some(res) = item {
         return Ok(res);
