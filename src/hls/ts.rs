@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     ops::{AddAssign, SubAssign},
     sync::Arc,
     time::Duration,
@@ -6,12 +7,13 @@ use std::{
 
 use actix_web::web::{self, Bytes};
 use awc::Client;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, RwLock};
 
 use crate::{cache::map::CACHEDATA, request};
 
 lazy_static! {
     static ref THREAD: Mutex<i32> = Mutex::new(0);
+    static ref PROCESS: RwLock<HashMap<String, bool>> = RwLock::new(HashMap::new());
 }
 
 const MAX_THREAD: i32 = 5;
@@ -30,6 +32,12 @@ pub async fn put_task(client: web::Data<Client>, uid: String, url: String) -> Op
                 }
                 // 离开作用域时释放锁
             }
+            {
+                if PROCESS.read().await.contains_key(&uid) {
+                    THREAD.lock().await.add_assign(1);
+                    break;
+                }
+            }
             tokio::time::sleep(t).await;
         }
         let r = request::req_get(&client, &url, limit).await;
@@ -44,7 +52,9 @@ pub async fn put_task(client: web::Data<Client>, uid: String, url: String) -> Op
 
 pub async fn get_task(uid: &String) -> Option<Arc<Bytes>> {
     let real = || async { None };
-    let item = CACHEDATA.load_or_store(uid, real, 1).await;
+    PROCESS.write().await.insert(uid.to_owned(), true);
+    let item = CACHEDATA.load_or_store(uid, real, 3).await;
+    PROCESS.write().await.remove(uid);
     item
 }
 

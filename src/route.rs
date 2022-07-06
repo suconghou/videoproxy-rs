@@ -28,7 +28,7 @@ async fn vinfo(info: web::Path<(String, String)>, client: web::Data<Client>) -> 
     HttpResponse::Ok()
         .insert_header((
             CACHE_CONTROL,
-            format!("public,max-age=3600{}", CACHEJSON.len()),
+            format!("public,max-age=3600{}", CACHEJSON.len().await),
         ))
         .json(res.unwrap().clean())
 }
@@ -42,7 +42,10 @@ async fn hls(info: web::Path<(String, String)>, client: web::Data<Client>) -> im
     }
     HttpResponse::Ok()
         .content_type("application/vnd.apple.mpegurl")
-        .insert_header((CACHE_CONTROL, format!("public,max-age={}", CACHEDATA.len())))
+        .insert_header((
+            CACHE_CONTROL,
+            format!("public,max-age={}", CACHEDATA.len().await),
+        ))
         .body(res.unwrap())
 }
 
