@@ -54,14 +54,11 @@ pub async fn playlist_index(
         }
         found
     });
-    let u = match item {
-        Some(u) => u,
-        None => {
-            return Err(Box::new(io::Error::new(
-                io::ErrorKind::NotFound,
-                format!("{} {}", vid, list),
-            )))
-        }
+    let Some(u) = item else {
+        return Err(Box::new(io::Error::new(
+            io::ErrorKind::NotFound,
+            format!("{} {}", vid, list),
+        )))
     };
     let data = request::getdata(client, &u, 5, 5 << 20).await?;
     let lines = data.lines().map(|f| f.unwrap()).map(|f| {

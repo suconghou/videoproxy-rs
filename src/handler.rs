@@ -224,10 +224,10 @@ fn request(client: web::Data<Client>, url: String, timeout: u64) -> ClientReques
 #[inline]
 fn find_item(info: parser::VideoInfo, prefer: &String) -> Option<String> {
     for itag in prefer.split(',').chain(PREFER_LIST.split(',')) {
-        match info.streams.get(itag) {
-            Some(item) => return Some(item.url.clone()),
-            None => continue,
-        }
+        let Some(item) = info.streams.get(itag) else {
+            continue;
+        };
+        return Some(item.url.clone());
     }
     None
 }

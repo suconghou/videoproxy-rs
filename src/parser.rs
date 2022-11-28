@@ -120,11 +120,11 @@ pub async fn parse_url(
             format!("{} {}", vid, reason),
         )));
     };
-    if let Some(url) = res["streamingData"][key].as_str() {
-        return Ok(url.to_owned());
-    }
-    return Err(Box::new(io::Error::new(
-        io::ErrorKind::NotFound,
-        format!("{} {}", vid, key),
-    )));
+    let Some(url) = res["streamingData"][key].as_str() else {
+        return Err(Box::new(io::Error::new(
+            io::ErrorKind::NotFound,
+            format!("{} {}", vid, key),
+        )));
+    };
+    return Ok(url.to_owned());
 }
