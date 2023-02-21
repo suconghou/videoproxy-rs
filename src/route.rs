@@ -21,60 +21,56 @@ async fn hello() -> impl Responder {
 #[get("/video/{vid:[\\w\\-]{6,15}}.{ext:(json)}")]
 async fn vinfo(info: web::Path<(String, String)>, client: web::Data<Client>) -> impl Responder {
     let info = info.into_inner();
-    let res = handler::get_info(&client, &info.0).await;
-    if res.is_err() {
-        return HttpResponse::InternalServerError().body(format!("{:?}", res.err().unwrap()));
+    match handler::get_info(&client, &info.0).await {
+        Ok(res) => HttpResponse::Ok()
+            .insert_header((
+                CACHE_CONTROL,
+                format!("public,max-age=3600{}", CACHEJSON.len().await),
+            ))
+            .json(res.clean()),
+        Err(err) => HttpResponse::InternalServerError().body(format!("{:?}", err)),
     }
-    HttpResponse::Ok()
-        .insert_header((
-            CACHE_CONTROL,
-            format!("public,max-age=3600{}", CACHEJSON.len().await),
-        ))
-        .json(res.unwrap().clean())
 }
 
 #[get("/video/{vid:[\\w\\-]{6,15}}.{ext:(m3u8)}")]
 async fn hls(info: web::Path<(String, String)>, client: web::Data<Client>) -> impl Responder {
     let info = info.into_inner();
-    let res = playlist::playlist_master(&client, &info.0).await;
-    if res.is_err() {
-        return HttpResponse::InternalServerError().body(format!("{:?}", res.err().unwrap()));
+    match playlist::playlist_master(&client, &info.0).await {
+        Ok(res) => HttpResponse::Ok()
+            .content_type("application/vnd.apple.mpegurl")
+            .insert_header((
+                CACHE_CONTROL,
+                format!("public,max-age={}", CACHEDATA.len().await),
+            ))
+            .body(res),
+        Err(err) => HttpResponse::InternalServerError().body(format!("{:?}", err)),
     }
-    HttpResponse::Ok()
-        .content_type("application/vnd.apple.mpegurl")
-        .insert_header((
-            CACHE_CONTROL,
-            format!("public,max-age={}", CACHEDATA.len().await),
-        ))
-        .body(res.unwrap())
 }
 
 #[get("/video/{vid:[\\w\\-]{6,15}}/{list:[\\w]{1,8}}.{ext:(m3u8)}")]
 async fn hls_list(info: web::Path<(String, String)>, client: web::Data<Client>) -> impl Responder {
     let info = info.into_inner();
-    let res = playlist::playlist_index(&client, &info.0, &info.1).await;
-    if res.is_err() {
-        return HttpResponse::InternalServerError().body(format!("{:?}", res.err().unwrap()));
+    match playlist::playlist_index(&client, &info.0, &info.1).await {
+        Ok(res) => HttpResponse::Ok()
+            .content_type("application/vnd.apple.mpegurl")
+            .insert_header((
+                CACHE_CONTROL,
+                format!("public,max-age={}", ts::thread().await),
+            ))
+            .body(res),
+        Err(err) => HttpResponse::InternalServerError().body(format!("{:?}", err)),
     }
-    HttpResponse::Ok()
-        .content_type("application/vnd.apple.mpegurl")
-        .insert_header((
-            CACHE_CONTROL,
-            format!("public,max-age={}", ts::thread().await),
-        ))
-        .body(res.unwrap())
 }
 
 #[get("/video/{vid:[\\w\\-]{6,15}}/{uid:[\\w]{1,8}}.{ext:(ts)}")]
 async fn hls_ts(info: web::Path<(String, String)>) -> impl Responder {
     let info = info.into_inner();
-    let res = playlist::playlist_ts(&info.0, &info.1).await;
-    if res.is_err() {
-        return HttpResponse::InternalServerError().body(format!("{:?}", res.err().unwrap()));
+    match playlist::playlist_ts(&info.0, &info.1).await {
+        Ok(res) => HttpResponse::Ok()
+            .insert_header((CACHE_CONTROL, "public,max-age=3600"))
+            .body(res.slice(..)),
+        Err(err) => HttpResponse::InternalServerError().body(format!("{:?}", err)),
     }
-    HttpResponse::Ok()
-        .insert_header((CACHE_CONTROL, "public,max-age=3600"))
-        .body(res.unwrap().slice(..))
 }
 
 #[get("/video/{vid:[\\w\\-]{6,15}}.{ext:(jpg|webp)}")]
