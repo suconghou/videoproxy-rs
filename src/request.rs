@@ -32,13 +32,13 @@ async fn getnetplayer(
     vid: &String,
     limit: usize,
 ) -> Result<Arc<HashMap<String, Value>>, Box<dyn Error>> {
-    let video_url = "https://youtubei.googleapis.com/youtubei/v1/player?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8";
+    let video_url = "https://youtubei.googleapis.com/youtubei/v1/player?key=AIzaSyCjc_pVEDi4qsv5MtC2dMXzpIaDoRFLsxw";
     let req = serde_json::json!({
         "videoId": vid,
         "context": {
             "client": {
-                "clientName": "Android",
-                "clientVersion": "16.13.35"
+                "clientName": "ANDROID_EMBEDDED_PLAYER",
+                "clientVersion": "17.31.35"
             }
         }
     });
