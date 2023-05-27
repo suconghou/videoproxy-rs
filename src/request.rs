@@ -32,13 +32,14 @@ async fn getnetplayer(
     vid: &String,
     limit: usize,
 ) -> Result<Arc<HashMap<String, Value>>, Box<dyn Error>> {
-    let video_url = "https://youtubei.googleapis.com/youtubei/v1/player?key=AIzaSyCjc_pVEDi4qsv5MtC2dMXzpIaDoRFLsxw";
+    let video_url = "https://youtubei.googleapis.com/youtubei/v1/player?key=AIzaSyB-63vPrdThhKuerbB2N_l7Kwwcxj6yUAc";
     let req = serde_json::json!({
         "videoId": vid,
         "context": {
             "client": {
-                "clientName": "ANDROID_EMBEDDED_PLAYER",
-                "clientVersion": "17.31.35"
+                "clientName": "IOS",
+                "clientVersion": "17.33.2",
+                "deviceModel": "iPhone14,3"
             }
         }
     });
@@ -47,7 +48,10 @@ async fn getnetplayer(
         .post(video_url)
         .timeout(TIMEOUT)
         .content_type("application/json")
-        .insert_header(UA)
+        .insert_header((
+            USER_AGENT,
+            "com.google.ios.youtube/17.33.2 (iPhone14,3; U; CPU iOS 15_6 like Mac OS X)",
+        ))
         .insert_header(AL)
         .send_json(&req)
         .await?;
