@@ -81,7 +81,7 @@ impl<V> CacheMap<V> {
                     |v: Arc<V>,
                      mut data: RwLockWriteGuard<HashMap<String, TaskItem<V>, RandomState>>|
                      -> Option<Arc<V>> {
-                        if let Some(mut o) = data.get_mut(key) {
+                        if let Some(o) = data.get_mut(key) {
                             o.data = Some(v.clone());
                             o.rx = None;
                             o.t = Instant::now();
@@ -119,7 +119,7 @@ impl<V> CacheMap<V> {
                 {
                     let mut data = self.data.write().await;
                     match data.get_mut(key) {
-                        Some(mut o) => {
+                        Some(o) => {
                             // HashMap中存在，则我们需要更新他
                             if res.is_some() {
                                 o.data = res.clone();
