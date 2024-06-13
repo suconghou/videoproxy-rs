@@ -55,23 +55,13 @@ async fn main() -> std::io::Result<()> {
 }
 
 fn opt() -> (String, String, String) {
-    let mut opts: Vec<String> = vec![
-        env::var("ADDR").unwrap_or("127.0.0.1:8080".to_owned()),
-        env::var("PUBLIC_PATH").unwrap_or("/public".to_owned()),
-        env::var("PUBLIC_DIR").unwrap_or("public".to_owned()),
-    ];
-    let mut index = 0;
-    let mut first = true;
-    for argument in env::args() {
-        if first {
-            first = false;
-            continue;
-        }
-        if index >= 3 {
-            break;
-        }
-        opts[index] = argument;
-        index = index + 1;
-    }
-    (opts[0].clone(), opts[1].clone(), opts[2].clone())
+    let mut a = env::args();
+    (
+        a.nth(1)
+            .unwrap_or_else(|| env::var("ADDR").unwrap_or("127.0.0.1:8080".to_owned())),
+        a.nth(2)
+            .unwrap_or_else(|| env::var("PUBLIC_PATH").unwrap_or("/public".to_owned())),
+        a.nth(3)
+            .unwrap_or_else(|| env::var("PUBLIC_DIR").unwrap_or("public".to_owned())),
+    )
 }
