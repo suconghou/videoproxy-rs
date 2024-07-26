@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     ops::{AddAssign, SubAssign},
-    sync::Arc,
+    sync::{Arc, LazyLock},
     time::Duration,
 };
 
@@ -11,10 +11,9 @@ use tokio::sync::{Mutex, RwLock};
 
 use crate::{cache::map::CACHEDATA, request};
 
-lazy_static! {
-    static ref THREAD: Mutex<i32> = Mutex::new(0);
-    static ref PROCESS: RwLock<HashMap<String, bool>> = RwLock::new(HashMap::new());
-}
+static THREAD: LazyLock<Mutex<i32>> = LazyLock::new(|| Mutex::new(0));
+static PROCESS: LazyLock<RwLock<HashMap<String, bool>>> =
+    LazyLock::new(|| RwLock::new(HashMap::new()));
 
 const MAX_THREAD: i32 = 5;
 

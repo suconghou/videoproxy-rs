@@ -3,15 +3,14 @@ use serde_json::value::Value;
 use std::collections::hash_map::RandomState;
 use std::collections::HashMap;
 use std::future::Future;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 use std::time::{Duration, Instant};
 use tokio::sync::{watch, RwLock, RwLockWriteGuard};
 
 // HashMap<String, Value> 为我们缓存的JSON对象
-lazy_static! {
-    pub static ref CACHEJSON: CacheMap<HashMap<String, Value>> = CacheMap::new();
-    pub static ref CACHEDATA: CacheMap<Bytes> = CacheMap::new();
-}
+pub static CACHEJSON: LazyLock<CacheMap<HashMap<String, Value>>> =
+    LazyLock::new(|| CacheMap::new());
+pub static CACHEDATA: LazyLock<CacheMap<Bytes>> = LazyLock::new(|| CacheMap::new());
 
 pub struct CacheMap<V> {
     data: RwLock<HashMap<String, TaskItem<V>>>,
