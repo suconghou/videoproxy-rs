@@ -42,7 +42,7 @@ impl VideoInfo {
 }
 
 pub async fn parse(client: &web::Data<Client>, vid: &String) -> Result<VideoInfo, Box<dyn Error>> {
-    let res = request::getplayer(client, &vid).await?;
+    let res = request::getplayer_cache(client, &vid, 3600).await?;
     let status = res["playabilityStatus"]["status"].as_str().unwrap_or("");
     if status != "OK" {
         let reason = res["playabilityStatus"]["reason"]
@@ -108,8 +108,9 @@ pub async fn parse_url(
     client: &web::Data<Client>,
     vid: &String,
     key: &str,
+    ttl: u64,
 ) -> Result<String, Box<dyn Error>> {
-    let res = request::getplayer(client, &vid).await?;
+    let res = request::getplayer_cache(client, &vid, ttl).await?;
     let status = res["playabilityStatus"]["status"].as_str().unwrap_or("");
     if status != "OK" {
         let reason = res["playabilityStatus"]["reason"]

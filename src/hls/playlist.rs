@@ -15,8 +15,8 @@ async fn get_hls_master(
     client: &web::Data<Client>,
     vid: &String,
 ) -> Result<Arc<Bytes>, Box<dyn error::Error>> {
-    let url = parser::parse_url(client, vid, "hlsManifestUrl").await?;
-    let data = request::getdata(client, &url, 600, 2 << 20).await?;
+    let url = parser::parse_url(client, vid, "hlsManifestUrl", 3600).await?;
+    let data = request::req_get_cache(client, &url, 600, 2 << 20).await?;
     Ok(data)
 }
 
@@ -58,9 +58,9 @@ pub async fn playlist_index(
         return Err(Box::new(io::Error::new(
             io::ErrorKind::NotFound,
             format!("{} {}", vid, list),
-        )))
+        )));
     };
-    let data = request::getdata(client, &u, 5, 5 << 20).await?;
+    let data = request::req_get_cache(client, &u, 5, 5 << 20).await?;
     let lines = data.lines().map(|f| f.unwrap()).map(|f| {
         if f.starts_with("#") {
             return f + "\r\n";

@@ -14,32 +14,33 @@ const UA: (HeaderName, &str) = (USER_AGENT, "Mozilla/5.0 (Macintosh; Intel Mac O
 const AL: (HeaderName, &str) = (ACCEPT_LANGUAGE, "zh-CN,zh;q=0.9,en;q=0.8");
 const TIMEOUT: std::time::Duration = Duration::from_secs(10);
 
-pub async fn getplayer(
+pub async fn getplayer_cache(
     client: &web::Data<Client>,
     vid: &String,
+    ttl: u64,
 ) -> Result<Arc<HashMap<String, Value>>, Box<dyn Error>> {
     let limit = 5 << 20;
-    let real = || async { getnetplayer(client, vid, limit).await.ok() };
-    let item = CACHEJSON.load_or_store(vid, real, 3600).await;
+    let real = || async { getplayer(client, vid, limit).await.ok() };
+    let item = CACHEJSON.load_or_store(vid, real, ttl).await;
     if let Some(res) = item {
         return Ok(res);
     }
-    getnetplayer(client, vid, limit).await
+    getplayer(client, vid, limit).await
 }
 
-async fn getnetplayer(
+async fn getplayer(
     client: &web::Data<Client>,
     vid: &String,
     limit: usize,
 ) -> Result<Arc<HashMap<String, Value>>, Box<dyn Error>> {
-    let video_url = "https://youtubei.googleapis.com/youtubei/v1/player?key=AIzaSyB-63vPrdThhKuerbB2N_l7Kwwcxj6yUAc";
+    let video_url = "https://www.youtube.com/youtubei/v1/player?key=AIzaSyB-63vPrdThhKuerbB2N_l7Kwwcxj6yUAc&prettyPrint=false";
     let req = serde_json::json!({
         "videoId": vid,
         "context": {
             "client": {
                 "clientName": "IOS",
-                "clientVersion": "17.33.2",
-                "deviceModel": "iPhone14,3"
+                "clientVersion": "19.45.4",
+                "deviceModel": "iPhone16,2",
             }
         }
     });
@@ -50,7 +51,7 @@ async fn getnetplayer(
         .content_type("application/json")
         .insert_header((
             USER_AGENT,
-            "com.google.ios.youtube/17.33.2 (iPhone14,3; U; CPU iOS 15_6 like Mac OS X)",
+            "com.google.ios.youtube/19.45.4 (iPhone16,2; U; CPU iOS 18_1_0 like Mac OS X;)",
         ))
         .insert_header(AL)
         .send_json(&req)
@@ -75,7 +76,7 @@ async fn getnetplayer(
     }
 }
 
-pub async fn getdata(
+pub async fn req_get_cache(
     client: &web::Data<Client>,
     url: &String,
     ttl: u64,
