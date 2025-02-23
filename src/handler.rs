@@ -1,7 +1,7 @@
 use crate::parser;
-use actix_web::http::header::CACHE_CONTROL;
 use actix_web::http::StatusCode;
-use actix_web::{web, HttpRequest, HttpResponse, Responder};
+use actix_web::http::header::CACHE_CONTROL;
+use actix_web::{HttpRequest, HttpResponse, Responder, web};
 use awc::Client;
 use awc::ClientRequest;
 use core::time::Duration;
@@ -64,8 +64,8 @@ pub async fn get_info(
 pub async fn proxy_image(
     client: web::Data<Client>,
     req: HttpRequest,
-    vid: &String,
-    ext: &String,
+    vid: String,
+    ext: String,
 ) -> impl Responder {
     let url = match ext.as_str() {
         "jpg" => format!("https://i.ytimg.com/vi/{}/mqdefault.{}", vid, ext),
@@ -77,17 +77,17 @@ pub async fn proxy_image(
 pub async fn proxy_ts(
     client: web::Data<Client>,
     req: HttpRequest,
-    vid: &String,
-    itag: &String,
-    part: &String,
+    vid: String,
+    itag: String,
+    part: String,
 ) -> impl Responder {
-    match get_info(&client, vid).await {
-        Ok(res) => match res.streams.get(itag) {
+    match get_info(&client, &vid).await {
+        Ok(res) => match res.streams.get(&itag) {
             Some(item) => {
                 let mut url = String::new();
                 url.push_str(&item.url);
                 url.push_str("&range=");
-                url.push_str(part);
+                url.push_str(&part);
                 simple_proxy(client, req, url, 30, None).await
             }
             None => {
@@ -108,11 +108,11 @@ pub async fn proxy_ts(
 pub async fn proxy_file(
     client: web::Data<Client>,
     req: HttpRequest,
-    vid: &String,
-    itag: &String,
+    vid: String,
+    itag: String,
 ) -> impl Responder {
-    match get_info(&client, vid).await {
-        Ok(res) => match res.streams.get(itag) {
+    match get_info(&client, &vid).await {
+        Ok(res) => match res.streams.get(&itag) {
             Some(item) => proxy(client, req, item.url.clone(), 3600, None).await,
             None => {
                 proxy(
@@ -132,10 +132,10 @@ pub async fn proxy_file(
 pub async fn proxy_auto(
     client: web::Data<Client>,
     req: HttpRequest,
-    vid: &String,
+    vid: String,
     prefer: &String,
-) -> impl Responder {
-    match get_info(&client, vid).await {
+) -> impl Responder + use<> {
+    match get_info(&client, &vid).await {
         Ok(res) => match find_item(res, &prefer) {
             Some(item) => proxy(client, req, item, 3600, None).await,
             None => {

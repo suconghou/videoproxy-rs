@@ -3,7 +3,7 @@ use crate::handler;
 use crate::hls::{playlist, ts};
 use actix_files as fs;
 use actix_web::http::header::CACHE_CONTROL;
-use actix_web::{get, post, web, Error, HttpRequest, HttpResponse, Responder, Result};
+use actix_web::{Error, HttpRequest, HttpResponse, Responder, Result, get, post, web};
 use awc::Client;
 use serde::Deserialize;
 use std::path::PathBuf;
@@ -80,7 +80,7 @@ async fn image(
     client: web::Data<Client>,
 ) -> impl Responder {
     let info = info.into_inner();
-    handler::proxy_image(client, req, &info.0, &info.1).await
+    handler::proxy_image(client, req, info.0, info.1).await
 }
 
 #[get("/video/{vid:[\\w\\-]{6,15}}/{itag:\\d+}.{ext:(webm|mp4)}")]
@@ -90,7 +90,7 @@ async fn stream(
     client: web::Data<Client>,
 ) -> impl Responder {
     let info = info.into_inner();
-    handler::proxy_file(client, req, &info.0, &info.1).await
+    handler::proxy_file(client, req, info.0, info.1).await
 }
 
 #[get("/video/{vid:[\\w\\-]{6,15}}/{itag:\\d+}/{range:\\d+-\\d+}.ts")]
@@ -100,7 +100,7 @@ async fn streamts(
     client: web::Data<Client>,
 ) -> impl Responder {
     let info = info.into_inner();
-    handler::proxy_ts(client, req, &info.0, &info.1, &info.2).await
+    handler::proxy_ts(client, req, info.0, info.1, info.2).await
 }
 
 #[get("/video/{vid:[\\w\\-]{6,15}}.{ext:(webm|mp4)}")]
@@ -114,7 +114,7 @@ async fn streamauto(
     handler::proxy_auto(
         client,
         req,
-        &info.0,
+        info.0,
         params.prefer.as_ref().unwrap_or(&"".to_owned()),
     )
     .await

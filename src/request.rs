@@ -1,6 +1,6 @@
 use crate::cache::map::{CACHEDATA, CACHEJSON};
-use actix_web::http::header::{HeaderName, ACCEPT_LANGUAGE, USER_AGENT};
 use actix_web::http::StatusCode;
+use actix_web::http::header::{ACCEPT_LANGUAGE, HeaderName, USER_AGENT};
 use actix_web::web::{self, Bytes};
 use awc::Client;
 use core::time::Duration;
