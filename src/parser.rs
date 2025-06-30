@@ -55,7 +55,7 @@ pub async fn parse(client: &web::Data<Client>, vid: &String) -> Result<VideoInfo
     }
     let stream_items: HashMap<String, StreamItem> = HashMap::new();
     let mut info = VideoInfo {
-        id: (&*vid).to_owned(),
+        id: vid.to_owned(),
         title: res["videoDetails"]["title"]
             .as_str()
             .unwrap_or("")
