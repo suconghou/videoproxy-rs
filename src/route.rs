@@ -53,10 +53,7 @@ async fn hls_list(info: web::Path<(String, String)>, client: web::Data<Client>) 
     match playlist::playlist_index(&client, &info.0, &info.1).await {
         Ok(res) => HttpResponse::Ok()
             .content_type("application/vnd.apple.mpegurl")
-            .insert_header((
-                CACHE_CONTROL,
-                format!("public,max-age={}", ts::thread().await),
-            ))
+            .insert_header((CACHE_CONTROL, format!("public,max-age={}", ts::thread()))) // metric about avilable threads
             .body(res),
         Err(err) => HttpResponse::InternalServerError().body(format!("{:?}", err)),
     }

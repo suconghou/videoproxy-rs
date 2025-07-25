@@ -1,47 +1,38 @@
 use std::{
     collections::HashMap,
-    ops::{AddAssign, SubAssign},
     sync::{Arc, LazyLock},
-    time::Duration,
 };
 
 use actix_web::web::{self, Bytes};
 use awc::Client;
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::{RwLock, Semaphore, SemaphorePermit};
 
 use crate::{cache::map::CACHEDATA, request};
+const MAX_THREAD: usize = 5;
 
-static THREAD: LazyLock<Mutex<i32>> = LazyLock::new(|| Mutex::new(0));
+static THREAD: LazyLock<Semaphore> = LazyLock::new(|| Semaphore::new(MAX_THREAD));
 static PROCESS: LazyLock<RwLock<HashMap<String, bool>>> =
     LazyLock::new(|| RwLock::new(HashMap::new()));
-
-const MAX_THREAD: i32 = 5;
 
 pub async fn put_task(client: web::Data<Client>, uid: String, url: String) -> Option<Arc<Bytes>> {
     let limit = 15 << 20;
     let ttl = 120;
     let real = || async {
-        let t = Duration::from_millis(200);
-        loop {
-            {
-                let mut n = THREAD.lock().await; // 持有锁，保持判断和自增原子性
-                if n.lt(&MAX_THREAD) {
-                    n.add_assign(1);
-                    break;
-                }
-                // 离开作用域时释放锁
+        // 检查当前任务是否是高优先级
+        let is_priority = PROCESS.read().await.contains_key(&uid);
+        // 如果不是高优先级任务，则必须获取一个信号量许可
+        // 如果是高优先级任务，则 _permit 为 None，直接执行
+        let _permit: Option<SemaphorePermit> = if !is_priority {
+            match THREAD.acquire().await {
+                // .acquire() 会等待，直到有可用的许可
+                Ok(p) => Some(p),
+                Err(_) => return None, // 如果信号量已关闭，则无法继续
             }
-            {
-                if PROCESS.read().await.contains_key(&uid) {
-                    THREAD.lock().await.add_assign(1);
-                    break;
-                }
-            }
-            tokio::time::sleep(t).await;
-        }
-        let r = request::req_get(&client, &url, limit).await;
-        THREAD.lock().await.sub_assign(1); // 直到return时才释放锁
-        r.ok()
+        } else {
+            None
+        };
+        let result = request::req_get(&client, &url, limit).await;
+        result.ok() // 当这个闭包结束时，_permit (如果存在) 会被自动 drop， 从而释放信号量许可，让其他等待的任务可以继续。
     };
     CACHEDATA.load_or_store(&uid, real, ttl).await
 }
@@ -54,6 +45,6 @@ pub async fn get_task(uid: &String) -> Option<Arc<Bytes>> {
     item
 }
 
-pub async fn thread() -> i32 {
-    THREAD.lock().await.clone()
+pub fn thread() -> usize {
+    THREAD.available_permits()
 }
