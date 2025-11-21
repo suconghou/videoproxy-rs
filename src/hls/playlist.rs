@@ -2,7 +2,7 @@ use actix_web::web::{self, Bytes};
 use awc::Client;
 use std::{
     error,
-    io::{self, BufRead},
+    io::{self},
     sync::Arc,
 };
 use tokio::task;
@@ -25,11 +25,12 @@ pub async fn playlist_master(
     vid: &String,
 ) -> Result<String, Box<dyn error::Error>> {
     let data = get_hls_master(client, vid).await?;
+    let content = std::str::from_utf8(&data).unwrap_or_default();
     let mut uid: String = "".to_owned();
-    let lines = data.lines().map(|f| f.unwrap()).map(move |f| {
+    let lines = content.lines().map(move |f| {
         if f.starts_with("#") {
-            uid = util::hash(&f);
-            return f + "\r\n";
+            uid = util::hash(f);
+            return f.to_owned() + "\r\n";
         }
         "/video/".to_owned() + vid + "/" + &uid + ".m3u8\r\n"
     });
@@ -43,10 +44,11 @@ pub async fn playlist_index(
     list: &String,
 ) -> Result<String, Box<dyn error::Error>> {
     let data = get_hls_master(client, vid).await?;
+    let content = std::str::from_utf8(&data).unwrap_or_default();
     let mut found = false;
-    let item = data.lines().map(|f| f.unwrap()).find(move |f| {
+    let item = content.lines().find(move |f| {
         if f.starts_with("#") {
-            let uid = util::hash(&f);
+            let uid = util::hash(f);
             if &uid == list {
                 found = true
             }
@@ -60,14 +62,15 @@ pub async fn playlist_index(
             format!("{} {}", vid, list),
         )));
     };
-    let data = request::req_get_cache(client, &u, 5, 5 << 20).await?;
-    let lines = data.lines().map(|f| f.unwrap()).map(|f| {
+    let data = request::req_get_cache(client, &u.to_string(), 5, 5 << 20).await?;
+    let sub_content = std::str::from_utf8(&data).unwrap_or_default();
+    let lines = sub_content.lines().map(|f| {
         if f.starts_with("#") {
-            return f + "\r\n";
+            return f.to_owned() + "\r\n";
         }
-        let uid = util::hash(&f);
-        task::spawn_local(ts::put_task(client.clone(), uid.clone(), f.clone()));
-        "/video/".to_owned() + vid + "/" + &uid + ".ts\r\n"
+        let uid = util::hash(f);
+        task::spawn_local(ts::put_task(client.clone(), uid.clone(), f.to_owned()));
+        format!("/video/{}/{}.ts\r\n", vid, uid)
     });
     let text = lines.collect();
     Ok(text)

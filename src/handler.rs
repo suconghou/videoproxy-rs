@@ -189,13 +189,13 @@ async fn base_proxy(
 
     let r = req.headers();
     for item in forward_headers {
-        if r.contains_key(*item) {
-            forwarded_req = forwarded_req.insert_header((*item, r.get(*item).unwrap().clone()));
+        if let Some(val) = r.get(*item) {
+            forwarded_req = forwarded_req.insert_header((*item, val.clone()));
         }
     }
-    let res = forwarded_req.send().await;
-    let Ok(res) = res else {
-        return HttpResponse::InternalServerError().body(format!("{:?}", res.err().unwrap()));
+    let res = match forwarded_req.send().await {
+        Ok(response) => response,
+        Err(e) => return HttpResponse::InternalServerError().body(format!("{:?}", e)),
     };
     let status = res.status();
     let mut client_resp = HttpResponse::build(status);
