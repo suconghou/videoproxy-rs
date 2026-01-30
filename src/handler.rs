@@ -133,7 +133,7 @@ pub async fn proxy_auto(
     client: web::Data<Client>,
     req: HttpRequest,
     vid: String,
-    prefer: &String,
+    prefer: &str,
 ) -> impl Responder + use<> {
     match get_info(&client, &vid).await {
         Ok(res) => match find_item(res, prefer) {
@@ -221,7 +221,7 @@ fn request(client: web::Data<Client>, url: String, timeout: u64) -> ClientReques
 }
 
 #[inline]
-fn find_item(info: parser::VideoInfo, prefer: &String) -> Option<String> {
+fn find_item(info: parser::VideoInfo, prefer: &str) -> Option<String> {
     for itag in prefer.split(',').chain(PREFER_LIST.split(',')) {
         let Some(item) = info.streams.get(itag) else {
             continue;

@@ -17,7 +17,7 @@ pub fn base62(n: u32) -> Vec<u8> {
         let i = num % 62;
         ret.insert(0, BASE62_MAP[i as usize]);
         num /= 62;
-        if num <= 0 {
+        if num == 0 {
             break;
         }
     }
