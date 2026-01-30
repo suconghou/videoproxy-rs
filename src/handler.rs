@@ -136,7 +136,7 @@ pub async fn proxy_auto(
     prefer: &String,
 ) -> impl Responder + use<> {
     match get_info(&client, &vid).await {
-        Ok(res) => match find_item(res, &prefer) {
+        Ok(res) => match find_item(res, prefer) {
             Some(item) => proxy(client, req, item, 3600, None).await,
             None => {
                 proxy(

@@ -42,16 +42,13 @@ impl VideoInfo {
 }
 
 pub async fn parse(client: &web::Data<Client>, vid: &String) -> Result<VideoInfo, Box<dyn Error>> {
-    let res = request::getplayer_cache(client, &vid, 3600).await?;
+    let res = request::getplayer_cache(client, vid, 3600).await?;
     let status = res["playabilityStatus"]["status"].as_str().unwrap_or("");
     if status != "OK" {
         let reason = res["playabilityStatus"]["reason"]
             .as_str()
             .unwrap_or(status);
-        return Err(Box::new(io::Error::new(
-            io::ErrorKind::Other,
-            format!("{} {}", vid, reason),
-        )));
+        return Err(Box::new(io::Error::other(format!("{} {}", vid, reason))));
     }
     let stream_items: HashMap<String, StreamItem> = HashMap::new();
     let mut info = VideoInfo {
@@ -96,8 +93,8 @@ pub async fn parse(client: &web::Data<Client>, vid: &String) -> Result<VideoInfo
                 itag: itags,
                 url: url.to_owned(),
                 r#type: mime.to_owned(),
-                init_range: item["initRange"].as_object().map(|v| v.clone()),
-                index_range: item["indexRange"].as_object().map(|v| v.clone()),
+                init_range: item["initRange"].as_object().cloned(),
+                index_range: item["indexRange"].as_object().cloned(),
             },
         );
     }
@@ -110,16 +107,13 @@ pub async fn parse_url(
     key: &str,
     ttl: u64,
 ) -> Result<String, Box<dyn Error>> {
-    let res = request::getplayer_cache(client, &vid, ttl).await?;
+    let res = request::getplayer_cache(client, vid, ttl).await?;
     let status = res["playabilityStatus"]["status"].as_str().unwrap_or("");
     if status != "OK" {
         let reason = res["playabilityStatus"]["reason"]
             .as_str()
             .unwrap_or(status);
-        return Err(Box::new(io::Error::new(
-            io::ErrorKind::Other,
-            format!("{} {}", vid, reason),
-        )));
+        return Err(Box::new(io::Error::other(format!("{} {}", vid, reason))));
     };
     let Some(url) = res["streamingData"][key].as_str() else {
         return Err(Box::new(io::Error::new(
@@ -127,5 +121,5 @@ pub async fn parse_url(
             format!("{} {}", vid, key),
         )));
     };
-    return Ok(url.to_owned());
+    Ok(url.to_owned())
 }

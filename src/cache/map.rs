@@ -1,16 +1,15 @@
 use actix_web::web::Bytes;
 use serde_json::value::Value;
-use std::collections::hash_map::RandomState;
 use std::collections::HashMap;
+use std::collections::hash_map::RandomState;
 use std::future::Future;
 use std::sync::{Arc, LazyLock};
 use std::time::{Duration, Instant};
-use tokio::sync::{watch, RwLock, RwLockWriteGuard};
+use tokio::sync::{RwLock, RwLockWriteGuard, watch};
 
 // HashMap<String, Value> 为我们缓存的JSON对象
-pub static CACHEJSON: LazyLock<CacheMap<HashMap<String, Value>>> =
-    LazyLock::new(|| CacheMap::new());
-pub static CACHEDATA: LazyLock<CacheMap<Bytes>> = LazyLock::new(|| CacheMap::new());
+pub static CACHEJSON: LazyLock<CacheMap<HashMap<String, Value>>> = LazyLock::new(CacheMap::new);
+pub static CACHEDATA: LazyLock<CacheMap<Bytes>> = LazyLock::new(CacheMap::new);
 
 pub struct CacheMap<V> {
     data: RwLock<HashMap<String, TaskItem<V>>>,
@@ -55,7 +54,7 @@ impl<V> CacheMap<V> {
         Fut: Future<Output = Option<Arc<V>>>,
     {
         self.expire().await;
-        match {
+        let res = {
             let mut data = self.data.write().await;
             match data.get(key) {
                 Some(item) => match &item.data {
@@ -74,7 +73,8 @@ impl<V> CacheMap<V> {
                     NewlyPending(tx)
                 }
             }
-        } {
+        };
+        match res {
             AlreadyPending(mut rx) => {
                 let cache_it =
                     |v: Arc<V>,

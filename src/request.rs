@@ -10,7 +10,10 @@ use std::error::Error;
 use std::io;
 use std::sync::Arc;
 
-const UA: (HeaderName, &str) = (USER_AGENT, "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/103.0.0.0 Safari/537.36");
+const UA: (HeaderName, &str) = (
+    USER_AGENT,
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/103.0.0.0 Safari/537.36",
+);
 const AL: (HeaderName, &str) = (ACCEPT_LANGUAGE, "zh-CN,zh;q=0.9,en;q=0.8");
 const TIMEOUT: std::time::Duration = Duration::from_secs(10);
 
@@ -68,10 +71,11 @@ async fn getplayer(
             println!("status: failed {} {}", vid, response.status());
             let res = response.body().limit(limit).await?;
             println!("{:?}", res);
-            Err(Box::new(io::Error::new(
-                io::ErrorKind::Other,
-                format!("{} {}", vid, response.status()),
-            )))
+            Err(Box::new(io::Error::other(format!(
+                "{} {}",
+                vid,
+                response.status()
+            ))))
         }
     }
 }
@@ -108,10 +112,11 @@ pub async fn req_get(
         _ => {
             println!("status: failed {} {}", url, response.status());
             println!("{:?}", res);
-            Err(Box::new(io::Error::new(
-                io::ErrorKind::Other,
-                format!("{} {}", url, response.status()),
-            )))
+            Err(Box::new(io::Error::other(format!(
+                "{} {}",
+                url,
+                response.status()
+            ))))
         }
     }
 }
